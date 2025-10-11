@@ -137,4 +137,20 @@ $$
 
 ### Semi-Bayes (SB)
 
+Similar, but smaller set. $\tilde{C}$ is the posterior covariance of the MVN distribution for $\beta$.
+
+$$
+\begin{align*}
+\tilde{C} &= \hat{V} \left[I - \frac{(n-p)B}{n}\right] \\
+\tilde\pi &= (Z^TWZ)^{-1}Z^TW\hat\beta \\
+\tilde\mu &= Z \tilde\pi \\
+\tilde{\beta} &= B\tilde\mu + (I-B)\hat\beta \\
+W &= (\hat{V} + \tau^2I)^{-1}
+\end{align*}
+$$
+
 ## Performance 
+
+- Mean coverage rates of 95% interval for $\hat\beta$
+- Mean lengths of simulated 95% confidence intervals
+- RMSE of point estimators as percent of error of ML estimator
