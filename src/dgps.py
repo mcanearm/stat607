@@ -1,5 +1,10 @@
 import numpy as np
 import logging
+from dataclasses import dataclass
+import json
+import pickle as pkl
+from pathlib import Path
+from typing import Union
 
 
 logger = logging.getLogger(__name__)
@@ -19,6 +24,54 @@ def create_covariance_matrix(n, rho=0.0):
     return C
 
 
+@dataclass
+class SimulatedData(object):
+    X: np.ndarray
+    y: np.ndarray
+    true_beta: np.ndarray
+    n: int
+    rho: float
+    tau_0: float
+    tau_1: float
+    sigma2: float
+    rng: np.random.Generator
+
+    def __repr__(self):
+        return (
+            f"SimulatedData(n={self.n}, rho={self.rho}, tau_0={self.tau_0}, "
+            f"tau_1={self.tau_1}, sigma2={self.sigma2}, "
+            f"X_shape={self.X.shape}, y_shape={self.y.shape})"
+        )
+
+    def __iter__(self):
+        yield from (self.X, self.y, self.true_beta)
+
+    def __str__(self) -> str:
+        return json.dumps(self.__dict__)
+
+    def __create_filename(self):
+        return Path(
+            f"simdata_n{self.n}_rho={self.rho}_tau0={self.tau_0}_"
+            f"tau1={self.tau_1}_sigma2={self.sigma2}.pkl"
+        )
+
+    def save(self, output_dir: Union[Path, str]):
+        output_file = Path(output_dir) / self.__create_filename()
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        logging.debug(f"Saving simulated data to {output_file}")
+        with open(output_file, "wb") as f:
+            pkl.dump(self, f)
+        logging.debug(f"Simulated data saved to {output_file}")
+        return output_file
+
+    @classmethod
+    def load(cls, filepath):
+        with open(filepath, "rb") as f:
+            data = pkl.load(f)
+        assert isinstance(data, cls), f"Loaded data is not of type {cls.__name__}"
+        return data
+
+
 class DatasetGenerator(object):
     def __init__(self, n=5, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0, rng=None):
         if rng is None:
@@ -31,10 +84,20 @@ class DatasetGenerator(object):
         self.rng = rng
         self.cov_mat = create_covariance_matrix(n, rho)
 
-    def __call__(self, N) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def __call__(self, N) -> SimulatedData:
         true_beta = self.generate_beta()
         X, y = self.generate_design_matrix(N, true_beta)
-        return X, y, true_beta
+        return SimulatedData(
+            X,
+            y,
+            true_beta,
+            self.n,
+            self.rho,
+            self.tau_0,
+            self.tau_1,
+            self.sigma2,
+            self.rng,
+        )
 
     def generate_design_matrix(self, N, true_beta):
         logger.debug(f"Using RNG: {self.rng}")

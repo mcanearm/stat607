@@ -1,5 +1,5 @@
 import pytest
-from src.dgps import DatasetGenerator, create_covariance_matrix 
+from src.dgps import DatasetGenerator, create_covariance_matrix , SimulatedData
 import numpy as np
 
 
@@ -22,7 +22,9 @@ def test_data_simulation(N, n, rho):
 
     assert generate_data.n == n
 
-    X, y, true_beta = generate_data(N)
+    X, y, true_beta = (simulated_data := generate_data(N))
+
+    assert isinstance(simulated_data, SimulatedData)
 
     assert X.shape == (N, n)
     assert np.all(np.isin(X, [0, 1]))
@@ -37,3 +39,24 @@ def test_data_simulation(N, n, rho):
         < 0.5
         < np.mean(y) + 1.96 * np.std(y) / np.sqrt(N)
     )
+
+# tmp_path is a fixture that is always available in pytest
+def test_saving_loading(tmpdir):
+    rng = np.random.default_rng(42)
+    generate_data = DatasetGenerator(n=5, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0, rng=rng)
+    simulated_data = generate_data(100)
+    
+    output_file = simulated_data.save(tmpdir)
+    loaded_data = SimulatedData.load(output_file)
+
+    assert np.array_equal(simulated_data.X, loaded_data.X)
+    assert np.array_equal(simulated_data.y, loaded_data.y)
+    assert np.array_equal(simulated_data.true_beta, loaded_data.true_beta)
+    assert simulated_data.n == loaded_data.n
+    assert simulated_data.rho == loaded_data.rho
+    assert simulated_data.tau_0 == loaded_data.tau_0
+    assert simulated_data.tau_1 == loaded_data.tau_1
+    assert simulated_data.sigma2 == loaded_data.sigma2
+
+    # ensure rng state is the same between loaded and generated
+    assert loaded_data.rng.normal() == simulated_data.rng.normal()
