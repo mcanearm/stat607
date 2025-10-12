@@ -43,5 +43,3 @@ def test_semi_bayes(mle_model, tau2):
 
     # assert shrinkage occurs, at least when tau2 is not TOO small
     assert np.linalg.norm(beta_star) <= np.linalg.norm(mle_model.params)
-
-

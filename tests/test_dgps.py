@@ -1,5 +1,5 @@
 import pytest
-from src.dgps import DatasetGenerator, create_covariance_matrix , SimulatedData
+from src.dgps import DatasetGenerator, create_covariance_matrix, SimulatedData
 import numpy as np
 
 
@@ -16,9 +16,10 @@ def test_covar_generation(n, rho):
 @pytest.mark.parametrize("n", [1, 2, 5, 10], ids=lambda n: f"n={n}")
 @pytest.mark.parametrize("rho", [0, 0.5, -0.5], ids=lambda rho: f"rho={rho}")
 def test_data_simulation(N, n, rho):
-
     rng = np.random.default_rng(42)
-    generate_data = DatasetGenerator(n=n, rho=rho, tau_0=1.0, tau_1=1.0, sigma2=1.0, rng=rng)
+    generate_data = DatasetGenerator(
+        n=n, rho=rho, tau_0=1.0, tau_1=1.0, sigma2=1.0, rng=rng
+    )
 
     assert generate_data.n == n
 
@@ -40,12 +41,15 @@ def test_data_simulation(N, n, rho):
         < np.mean(y) + 1.96 * np.std(y) / np.sqrt(N)
     )
 
+
 # tmp_path is a fixture that is always available in pytest
 def test_saving_loading(tmpdir):
     rng = np.random.default_rng(42)
-    generate_data = DatasetGenerator(n=5, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0, rng=rng)
+    generate_data = DatasetGenerator(
+        n=5, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0, rng=rng
+    )
     simulated_data = generate_data(100)
-    
+
     output_file = simulated_data.save(tmpdir)
     loaded_data = SimulatedData.load(output_file)
 
