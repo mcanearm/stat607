@@ -1,8 +1,19 @@
+from statsmodels.discrete.discrete_model import BinaryResults
 import statsmodels.api as sm
 import numpy as np
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def __get_mle_vhat(model):
+    beta_hat = model.params.values if hasattr(model.params, "values") else model.params
+    V_hat = (
+        model.cov_params().values
+        if hasattr(model.cov_params(), "values")
+        else model.cov_params()
+    )
+    return beta_hat, V_hat
 
 
 def mle(X, y, **fit_params):
@@ -21,6 +32,7 @@ def mle(X, y, **fit_params):
     -------
     model: statsmodels.discrete.discrete_model.BinaryResults
     """
+
     model = sm.Logit(y, X).fit()
     return model
     # beta_hat, beta_hat_covs = model.params, model.cov_params()
@@ -53,12 +65,7 @@ def parametricEB(model, max_iter=100, tol=1e-6):
     First attempt by myself following the notation in the ADEMP doc, but final
     imeplementation was mostly done by ChatGPT to adjust some mistakes I was making.
     """
-    beta_hat = model.params.values if hasattr(model.params, "values") else model.params
-    V_hat = (
-        model.cov_params().values
-        if hasattr(model.cov_params(), "values")
-        else model.cov_params()
-    )
+    beta_hat, V_hat = __get_mle_vhat(model)
     n = len(beta_hat)
     p = 1  # intercept-only prior mean
     Z = np.ones((n, p))
@@ -103,3 +110,29 @@ def parametricEB(model, max_iter=100, tol=1e-6):
     C_star = V_hat @ (np.eye(n) - (n - p) * B_star / n) + A
 
     return beta_star, C_star, tau_tilde2
+
+
+def semi_bayes(model, tau2=1.0):
+    """
+    Semi-Bayes estimator for first-stage MLEs (model.params)
+    Assumes simple prior: beta_i ~ N(mu, tau^2), Z = 1
+    Because we assumed the variance around the Beta parameters, this is a closed
+    form solution and requires no iterations.
+    Parameters
+    ----------
+    model : statsmodels.discrete.discrete_model.BinaryResults
+        Fitted model from statsmodels (MLEs + cov)
+    tau2 : float
+        Prior variance
+    """
+    beta_hat, V_hat = __get_mle_vhat(model)
+
+    n = len(beta_hat)
+    p = 1
+    B = np.linalg.inv((V_hat + tau2 * np.eye(len(beta_hat))))
+    pi_tilde = B @ beta_hat
+    mu_tilde = pi_tilde  # since Z=1
+    C_tilde = V_hat @ (np.eye(n) - (n - p) * B / n)  # see ADEMP doc for A def
+
+    beta_tilde = B @ mu_tilde + (np.eye(n) - B) @ beta_hat
+    return beta_tilde, C_tilde

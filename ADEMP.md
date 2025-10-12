@@ -109,6 +109,13 @@ We need closed form solutions for each of these. Logistic regression is common p
 
 The random effect $\hat{\beta}$ were computed from each sample $(y, X)$ under model 8, the normal logistic regression model. This is mis-specified because there is no assumed error term for each individual under the normal model, $\epsilon_k$.
 
+
+### Important Methods across EB and SB methods
+
+$$
+B = (\hat{V} + \tau^2 I_n)^{-1} \hat{V}
+$$
+
 ### Parametric Empirical Bayes (EB)
 
 Method of moment estimators - there are a lot, but we'll try to organize them.
@@ -137,7 +144,9 @@ $$
 
 ### Semi-Bayes (SB)
 
-Similar, but smaller set. $\tilde{C}$ is the posterior covariance of the MVN distribution for $\beta$.
+Similar, but smaller set. $\tilde{C}$ is the posterior covariance of the MVN distribution for $\beta$. Also,
+we redefine B and W to be equal, specifically $B=W=(V + \tau^2 I_n)^{-1} V$.
+
 
 $$
 \begin{align*}
