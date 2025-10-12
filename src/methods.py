@@ -2,6 +2,8 @@ import statsmodels.api as sm
 import numpy as np
 import logging
 
+logger = logging.getLogger(__name__)
+
 
 def mle(X, y, **fit_params):
     """
@@ -84,10 +86,10 @@ def parametricEB(model, max_iter=100, tol=1e-6):
         W_star = np.linalg.inv(V_hat + tau_new * np.eye(n))
 
         # Check convergence
-        logging.warning(f"Iter {_}: tau^2 = {tau_new}")
+        logging.info(f"Iter {_}: tau^2 = {tau_new}")
         if np.abs(tau_new - tau_tilde2) < tol:
             tau_tilde2 = tau_new
-            print(f"Converged after {_} iterations.")
+            logging.info(f"Converged after {_} iterations.")
             break
         tau_tilde2 = tau_new
 

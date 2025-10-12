@@ -1,18 +1,20 @@
 import numpy as np
 import pytest
 
-from src.dgps import generate_beta, generate_design_matrix
+from src.dgps import DatasetGenerator
 from src.methods import mle, parametricEB
 
 
 @pytest.fixture
-def generated_data():
-    rng = np.random.default_rng(22)
-    true_beta = generate_beta(n=5, tau_0=1.0, tau_1=1.0, rng=rng)
-    X, y = generate_design_matrix(
-        N=100, cov_mat=np.eye(5), rng=rng, sigma2=1.0, beta=true_beta
-    )
-    return X, y, true_beta
+def generate_data():
+    rng = np.random.default_rng(42)
+    return DatasetGenerator(n=10, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0, rng=rng)
+
+
+@pytest.fixture
+def generated_data(generate_data):
+    return generate_data(100)
+
 
 @pytest.fixture
 def mle_model(generated_data):
@@ -28,11 +30,12 @@ def test_mle(generated_data):
     assert model
     assert len(model.params) == X.shape[1]
 
-def test_parametricEB(mle_model):
 
+def test_parametricEB(mle_model):
     beta_hat, cov, tau_2 = parametricEB(mle_model, max_iter=1000)
     assert beta_hat is not None
     assert len(beta_hat) == len(mle_model.params)  # should return 5 items
+
 
 def test_semi_bayes(mle_model):
     pass

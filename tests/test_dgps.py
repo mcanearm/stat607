@@ -1,5 +1,5 @@
 import pytest
-from src.dgps import generate_design_matrix, create_covariance_matrix, generate_beta
+from src.dgps import DatasetGenerator, create_covariance_matrix 
 import numpy as np
 
 
@@ -16,19 +16,22 @@ def test_covar_generation(n, rho):
 @pytest.mark.parametrize("n", [2, 5, 10], ids=lambda n: f"n={n}")
 @pytest.mark.parametrize("rho", [0, 0.5, -0.5], ids=lambda rho: f"rho={rho}")
 def test_design_matrix_generation(N, n, rho):
+
     rng = np.random.default_rng(42)
+    generate_data = DatasetGenerator(n=n, rho=rho, tau_0=1.0, tau_1=1.0, sigma2=1.0, rng=rng)
 
-    beta = generate_beta(n, tau_0=1.0, tau_1=1.0, rng=rng)
+    assert generate_data.n == n
 
-    cov_mat = create_covariance_matrix(n, rho)
-    X, y = generate_design_matrix(N, cov_mat, rng=rng, sigma2=1.0, beta=beta)
+    X, y, true_beta = generate_data(N)
 
     assert X.shape == (N, n)
     assert np.all(np.isin(X, [0, 1]))
     assert y.shape == (N,)
     assert np.isin(y, [0, 1]).all()
+    assert true_beta.shape == (n,)
 
     # make sure we can't rule out 50% for the mean of Y with a silly CI test
+    # note that this still may fail sometimes due to randomness
     assert (
         np.mean(y) - 1.96 * np.std(y) / np.sqrt(N)
         < 0.5
