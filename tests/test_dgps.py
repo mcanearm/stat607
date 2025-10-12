@@ -1,0 +1,36 @@
+import pytest
+from src.dgps import generate_design_matrix, create_covariance_matrix, generate_beta
+import numpy as np
+
+
+@pytest.mark.parametrize("n", [2, 5, 10], ids=lambda n: f"n={n}")
+@pytest.mark.parametrize("rho", [-0.5, 0.0, 0.5], ids=lambda r: f"rho={r}")
+def test_covar_generation(n, rho):
+    C = create_covariance_matrix(n, rho)
+    assert C.shape == (n, n)
+    assert np.all(np.diag(C) == 1)
+    assert np.all(C >= -1) and np.all(C <= 1)
+
+
+@pytest.mark.parametrize("N", [10, 100], ids=lambda N: f"N={N}")
+@pytest.mark.parametrize("n", [2, 5, 10], ids=lambda n: f"n={n}")
+@pytest.mark.parametrize("rho", [0, 0.5, -0.5], ids=lambda rho: f"rho={rho}")
+def test_design_matrix_generation(N, n, rho):
+    rng = np.random.default_rng(42)
+
+    beta = generate_beta(n, tau_0=1.0, tau_1=1.0, rng=rng)
+
+    cov_mat = create_covariance_matrix(n, rho)
+    X, y = generate_design_matrix(N, cov_mat, rng=rng, sigma2=1.0, beta=beta)
+
+    assert X.shape == (N, n)
+    assert np.all(np.isin(X, [0, 1]))
+    assert y.shape == (N,)
+    assert np.isin(y, [0, 1]).all()
+
+    # make sure we can't rule out 50% for the mean of Y with a silly CI test
+    assert (
+        np.mean(y) - 1.96 * np.std(y) / np.sqrt(N)
+        < 0.5
+        < np.mean(y) + 1.96 * np.std(y) / np.sqrt(N)
+    )

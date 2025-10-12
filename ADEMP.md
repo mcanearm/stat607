@@ -48,7 +48,7 @@ Here, $g$ is a known, increasing link function (as in logistic regression).
 $$
 \begin{align*}
 \delta_i & \sim N(0, \tau_0^2) \\
-\mu_i & \sim Exp(\tau_1) \\
+\pi_i & \sim Exp(\tau_1) \\
 z_i & \sim Bern(0.2) \\
 \beta_i &= z_i \pi_i + \delta_i \tag{9} \\
 \beta &= Z\pi + \delta = \mu + \delta \tag{3}
@@ -93,7 +93,7 @@ Pr(y_k = 1) & = \omega_k/(1+\omega_k) \\
 \end{align*}
 $$
 
-where $\textbf{x}_k$ represents the exposures for a particular individual and $\epsilon_k$ represents an individual level imprecision. In each trial, $\alpha = \frac{1}{n}\sum_{k=1}^n \textbf{x}_k \beta + \epsilon_k$, which gives a roughly 50/50 division of positive to negative cases, because this "produced efficient simulations."
+where $\textbf{x}_k$ represents the exposures for a particular individual and $\epsilon_k$ represents an individual level imprecision. In each trial, $\alpha = -\frac{1}{n}\sum_{k=1}^n \textbf{x}_k \beta + \epsilon_k$, which gives a roughly 50/50 division of positive to negative cases, because this "produced efficient simulations." 
 
 ## Estimands/Targets
 
@@ -121,9 +121,9 @@ MOM Estimators:
 
 $$
 \begin{align*}
+\tilde{\tau}^2 &= \frac{nR}{n-p} - \bar{V}^* \\
 W^* &= (\hat{V} + \tilde{\tau}^2I)^{-1} \\
 \bar{V}^* &= \frac{W^*\hat{V}}{\sum_{ij}W^*_{ij}} \\
-\tilde{\tau}^2 &= \frac{nR}{n-p} - \bar{V}^* \\
 B^* &= (\hat{V} + \tilde{\tau}^2I)^{-1} \\
 \pi^* &= (Z^\prime W^* Z)^{-1} Z^{\prime}W^*\hat{\beta} \\
 \mu^* &= Z\pi^* \\
@@ -131,7 +131,7 @@ B^* &= (\hat{V} + \tilde{\tau}^2I)^{-1} \\
 e &= \hat{\beta} - \mu^* \\
 R &= \frac{e^\prime W^*e}{\sum_{ij}W_{ij}^*} \\
 A &= \frac{2B^*e(B^*e)^T}{n-p} \\
-C^* &= \hat{V}[I - (n-\beta)B^*/n] + A
+C^* &= \hat{V}[I - (n-p)B^*/n] + A
 \end{align*}
 $$
 
