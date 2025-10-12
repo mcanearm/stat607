@@ -7,6 +7,10 @@ logger = logging.getLogger(__name__)
 
 
 def __get_mle_vhat(model):
+    """
+    Extract MLE estimates and covariance from a fitted statsmodels model.
+    Simple helper function to avoid boilerplate code in EB and SB methods.
+    """
     beta_hat = model.params.values if hasattr(model.params, "values") else model.params
     V_hat = (
         model.cov_params().values
@@ -16,7 +20,7 @@ def __get_mle_vhat(model):
     return beta_hat, V_hat
 
 
-def mle(X, y, **fit_params):
+def fit_mle(X, y, **fit_params):
     """
     Compute the MLE for logistic regression; servces as a
     baseline method for our simulations.
@@ -39,7 +43,7 @@ def mle(X, y, **fit_params):
     # return beta_hat, beta_hat_covs
 
 
-def parametricEB(model, max_iter=100, tol=1e-6):
+def fit_parametricEB(model, max_iter=100, tol=1e-6):
     """
     Parametric Empirical Bayes for first-stage MLEs (model.params)
     Assumes simple prior: beta_i ~ N(mu, tau^2), Z = 1.
@@ -112,7 +116,7 @@ def parametricEB(model, max_iter=100, tol=1e-6):
     return beta_star, C_star, tau_tilde2
 
 
-def semi_bayes(model, tau2=1.0):
+def fit_semiBayes(model, tau2=1.0):
     """
     Semi-Bayes estimator for first-stage MLEs (model.params)
     Assumes simple prior: beta_i ~ N(mu, tau^2), Z = 1
