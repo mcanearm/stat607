@@ -63,13 +63,10 @@ class DatasetGenerator(object):
 
         return X, y
 
-    def generate_beta(self, rng=None):
-        if rng is None:
-            rng = np.random.default_rng(rng)
+    def generate_beta(self):
+        z_i = self.rng.choice([0, 1], size=self.n, p=[0.8, 0.2])
+        pi_i = self.rng.exponential(self.tau_1, size=self.n)
 
-        z_i = rng.choice([0, 1], size=self.n, p=[0.8, 0.2])
-        pi_i = rng.exponential(self.tau_1, size=self.n)
-
-        delta_i = rng.normal(0, self.tau_0, size=self.n)
+        delta_i = self.rng.normal(0, self.tau_0, size=self.n)
         beta = z_i * pi_i + delta_i
         return beta
