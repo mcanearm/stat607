@@ -37,11 +37,11 @@ def test_parametricEB(mle_model):
     assert len(beta_hat) == len(mle_model.params)  # should return 5 items
 
 
-@pytest.mark.parametrize("tau2", [1.0, 10.0, 1000], ids=lambda t: f"tau2={t}")
+@pytest.mark.parametrize("tau2", [0.5, 1.0, 10.0, 1000], ids=lambda t: f"tau2={t}")
 def test_semi_bayes(mle_model, tau2):
     beta_star, _ = semi_bayes(mle_model, tau2)
 
-    # assert shrinkage occurs, at least when tau2 > 1
+    # assert shrinkage occurs, at least when tau2 is not TOO small
     assert np.linalg.norm(beta_star) <= np.linalg.norm(mle_model.params)
 
 
