@@ -63,4 +63,4 @@ def test_saving_loading(tmpdir):
     assert simulated_data.sigma2 == loaded_data.sigma2
 
     # ensure rng state is the same between loaded and generated
-    assert loaded_data.rng.normal() == simulated_data.rng.normal()
+    assert np.isclose(loaded_data.rng.normal(), simulated_data.rng.normal())

@@ -1,14 +1,7 @@
 import numpy as np
 import pytest
 
-from src.dgps import DatasetGenerator
 from src.methods import fit_mle, fit_parametricEB, fit_semiBayes
-
-
-@pytest.fixture
-def generate_data():
-    rng = np.random.default_rng(42)
-    return DatasetGenerator(n=10, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0, rng=rng)
 
 
 @pytest.fixture

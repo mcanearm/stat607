@@ -172,7 +172,7 @@ class DatasetGenerator(object):
         self.rng = rng
         self.cov_mat = create_covariance_matrix(n, rho)
 
-    def __call__(self, N) -> SimulatedData:
+    def __call__(self, N=100) -> SimulatedData:
         true_beta = self.generate_beta()
         X, y = self.generate_design_matrix(N, true_beta)
         return SimulatedData(

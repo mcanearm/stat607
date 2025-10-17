@@ -1,6 +1,7 @@
 import statsmodels.api as sm
 import numpy as np
 import logging
+from collections import namedtuple
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,11 @@ def fit_mle(X, y, **fit_params):
     return model
     # beta_hat, beta_hat_covs = model.params, model.cov_params()
     # return beta_hat, beta_hat_covs
+
+
+parametricEBResults = namedtuple(
+    "parametricEBResults", ["beta_star", "C_star", "tau_tilde2"]
+)
 
 
 def fit_parametricEB(model, max_iter=100, tol=1e-6):
@@ -112,7 +118,10 @@ def fit_parametricEB(model, max_iter=100, tol=1e-6):
     A = 2 * np.outer(be, be) / (n - p)
     C_star = V_hat @ (np.eye(n) - (n - p) * B_star / n) + A
 
-    return beta_star, C_star, tau_tilde2
+    return parametricEBResults(beta_star, C_star, tau_tilde2)
+
+
+semiBayesResults = namedtuple("semiBayesResults", ["beta_tilde", "C_tilde"])
 
 
 def fit_semiBayes(model, tau2=1.0):
@@ -138,4 +147,4 @@ def fit_semiBayes(model, tau2=1.0):
     C_tilde = V_hat @ (np.eye(n) - (n - p) * B / n)  # see ADEMP doc for A def
 
     beta_tilde = B @ mu_tilde + (np.eye(n) - B) @ beta_hat
-    return beta_tilde, C_tilde
+    return semiBayesResults(beta_tilde, C_tilde)
