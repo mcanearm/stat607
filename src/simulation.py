@@ -8,6 +8,11 @@ import pickle as pkl
 from src.dgps import DatasetGenerator
 from src.methods import fit_mle, fit_parametricEB, fit_semiBayes
 
+
+from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
+import warnings
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -30,11 +35,13 @@ def run_simulation(
     data_generation_fn: DatasetGenerator,
     sbParams=None,
     ebParams=None,
+    mleParams=None,
     **generation_kwargs,
 ):
     # get default from fitting functions if this is an empty dict
     sbParams = get_sim_args(fit_semiBayes, sbParams or {})
     ebParams = get_sim_args(fit_parametricEB, ebParams or {})
+    mleParams = get_sim_args(fit_mle, mleParams or {})
 
     def _run_simulation():
         # get passed in dict values or initialize empty dicts
@@ -73,10 +80,35 @@ def run_simulation(
             },
         )
 
-        logging.debug(f"simulation complete -- {data_generation_fn.__dict__}")
+        logger.debug(f"simulation complete -- {data_generation_fn.__dict__}")
         return sim_estimates
 
-    sim_output = xr.concat([_run_simulation() for _ in range(N_sim)], dim="simulation")
+    sim_results = []
+    i = 0
+    while len(sim_results) < N_sim:
+        i += 1
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                warnings.simplefilter("ignore", ConvergenceWarning)
+                warnings.simplefilter("ignore", PerfectSeparationWarning)
+                sim_output = _run_simulation()
+        except Exception as e:
+            logger.debug(
+                f"Simulation iteration {i} failed: {e} -- success_rate = {(len(sim_results) / i):0.3f}"
+            )
+            continue
+        else:
+            sim_results.append(sim_output)
+        logger.debug(
+            f"Successes {len(sim_results)}/{i} = {(len(sim_results) / i):0.3f}"
+        )
+    log_dict = {k: v for k, v in data_generation_fn.__dict__.items() if k != "cov_mat"}
+    logger.info(
+        f"{N_sim} simulations completed, success rate = {(len(sim_results) / i):0.3f}, parameters: {log_dict}"
+    )
+
+    sim_output = xr.concat(sim_results, dim="simulation")
     sim_output.attrs = {
         "N": N_sim,
         **{f"sb_{k}": v for k, v in sbParams.items()},
@@ -89,9 +121,9 @@ def run_simulation(
 
 def construct_fp(sim_results):
     filename = (
-        f"sim_N{sim_results.attrs['N']}_n{sim_results.attrs['n']}"
-        f"_rho{sim_results.attrs['rho']}_tau0{sim_results.attrs['tau_0']}"
-        f"_tau1{sim_results.attrs['tau_1']}_sigma2{sim_results.attrs['sigma2']}.nc"
+        f"sim_N={sim_results.attrs['N']}_n={sim_results.attrs['n']}"
+        f"_rho={sim_results.attrs['rho']}_tau0={sim_results.attrs['tau_0']}"
+        f"_tau1={sim_results.attrs['tau_1']}_sigma2={sim_results.attrs['sigma2']}.pkl"
     )
     return Path(filename)
 

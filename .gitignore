@@ -209,3 +209,5 @@ __marimo__/
 *_files/
 *.html
 *.DS_Store
+results/*.pkl
+results/*.nc

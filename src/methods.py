@@ -37,11 +37,10 @@ def fit_mle(X, y, **fit_params):
     model: statsmodels.discrete.discrete_model.BinaryResults
     """
 
-    fit_params = fit_params or {"disp": False}
+    fit_params = fit_params or {"disp": False, "maxiter": 1000}
+
     model = sm.Logit(y, X).fit(**fit_params)
     return model
-    # beta_hat, beta_hat_covs = model.params, model.cov_params()
-    # return beta_hat, beta_hat_covs
 
 
 parametricEBResults = namedtuple(
@@ -49,7 +48,7 @@ parametricEBResults = namedtuple(
 )
 
 
-def fit_parametricEB(model, max_iter=100, tol=1e-6):
+def fit_parametricEB(model, max_iter=250, tol=1e-6):
     """
     Parametric Empirical Bayes for first-stage MLEs (model.params)
     Assumes simple prior: beta_i ~ N(mu, tau^2), Z = 1.
@@ -103,10 +102,10 @@ def fit_parametricEB(model, max_iter=100, tol=1e-6):
         W_star = np.linalg.inv(V_hat + tau_new * np.eye(n))
 
         # Check convergence
-        logging.info(f"Iter {_}: tau^2 = {tau_new}")
+        logger.debug(f"Iter {_}: tau^2 = {tau_new}")
         if np.abs(tau_new - tau_tilde2) < tol:
             tau_tilde2 = tau_new
-            logging.info(f"Converged after {_} iterations.")
+            logger.debug(f"Converged after {_} iterations.")
             break
         tau_tilde2 = tau_new
 
