@@ -2,7 +2,9 @@ import logging
 import xarray as xr
 import numpy as np
 import inspect
+from pathlib import Path
 
+import pickle as pkl
 from src.dgps import DatasetGenerator
 from src.methods import fit_mle, fit_parametricEB, fit_semiBayes
 
@@ -83,3 +85,27 @@ def run_simulation(
         **data_generation_fn.__dict__,
     }
     return sim_output
+
+
+def construct_fp(sim_results):
+    filename = (
+        f"sim_N{sim_results.attrs['N']}_n{sim_results.attrs['n']}"
+        f"_rho{sim_results.attrs['rho']}_tau0{sim_results.attrs['tau_0']}"
+        f"_tau1{sim_results.attrs['tau_1']}_sigma2{sim_results.attrs['sigma2']}.nc"
+    )
+    return Path(filename)
+
+
+def save_simulation_output(sim_data: xr.Dataset, output_dir: str | Path):
+    filename = construct_fp(sim_data)
+    output_path = Path(output_dir) / filename
+    with open(output_path, "wb") as f:
+        pkl.dump(sim_data, f)
+    logging.info(f"Simulation results saved to {output_path}")
+
+
+def load_simulation_output(file_path: str) -> xr.Dataset:
+    with open(file_path, "rb") as f:
+        sim_data = pkl.load(f)
+    logging.info(f"Simulation results loaded from {file_path}")
+    return sim_data

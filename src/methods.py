@@ -37,7 +37,8 @@ def fit_mle(X, y, **fit_params):
     model: statsmodels.discrete.discrete_model.BinaryResults
     """
 
-    model = sm.Logit(y, X).fit()
+    fit_params = fit_params or {"disp": False}
+    model = sm.Logit(y, X).fit(**fit_params)
     return model
     # beta_hat, beta_hat_covs = model.params, model.cov_params()
     # return beta_hat, beta_hat_covs
