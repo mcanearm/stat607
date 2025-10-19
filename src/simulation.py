@@ -8,8 +8,16 @@ import pickle as pkl
 from src.dgps import DatasetGenerator
 from src.methods import fit_mle, fit_parametricEB, fit_semiBayes, __get_mle_vhat
 
+from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
 
 logger = logging.getLogger(__name__)
+
+
+def true_t(tau0, tau1, p=0.2):
+    """
+    function to compute the true variance based on the DGP parameters
+    """
+    return np.sqrt(tau0**2 + p * (1 - p) * tau1**2)
 
 
 def get_sim_args(func, sim_args: dict, prepend=None):
@@ -85,6 +93,9 @@ def run_simulation(
         # get passed in dict values or initialize empty dicts
         X, y, beta = data_generation_fn(**generation_kwargs)
 
+        if np.linalg.matrix_rank(X) != data_generation_fn.n:
+            raise np.linalg.LinAlgError("Design matrix X is rank deficient.")
+
         mle = fit_mle(X, y)
         parametric_eb = fit_parametricEB(mle, **ebParams)
         semi_bayes = fit_semiBayes(mle, **sbParams)
@@ -129,7 +140,13 @@ def run_simulation(
         i += 1
         try:
             sim_output = _run_simulation()
-        except Exception as e:
+        except (
+            Exception,
+            ConvergenceWarning,
+            PerfectSeparationWarning,
+            RuntimeWarning,
+        ) as e:
+            # catch all reasonable MLE exceptions and discard the simulation run on those
             logger.debug(
                 f"Simulation iteration {i} failed: {e} -- success_rate = {(len(sim_results) / i):0.3f}"
             )
@@ -178,7 +195,8 @@ def construct_fp(sim_results: xr.Dataset) -> Path:
     filename = (
         f"sim_N={sim_results.attrs['N']}_n={sim_results.attrs['n']}"
         f"_rho={sim_results.attrs['rho']}_tau0={sim_results.attrs['tau_0']}"
-        f"_tau1={sim_results.attrs['tau_1']}_sigma2={sim_results.attrs['sigma2']}.pkl"
+        f"_tau1={sim_results.attrs['tau_1']}_tau2={sim_results.attrs['sb_tau2']:0.3f}"
+        f"_sigma2={sim_results.attrs['sigma2']}.pkl"
     )
     return Path(filename)
 

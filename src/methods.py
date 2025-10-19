@@ -44,7 +44,6 @@ def fit_mle(X, y, **fit_params):
 
     fit_params = fit_params or {"disp": False, "maxiter": 100}
     X = sm.add_constant(X.astype(int))
-
     model = sm.Logit(y, X).fit(**fit_params)
     return model
 
@@ -89,6 +88,7 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
     tau_tilde2 = 1e-3
     W_star = np.linalg.inv(V_hat + tau_tilde2 * np.eye(n))
 
+    e = beta_hat - np.zeros(n)
     for _ in range(max_iter):
         # Prior mean
         pi_star = np.linalg.inv(Z.T @ W_star @ Z) @ (Z.T @ W_star @ beta_hat)
@@ -107,6 +107,9 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
 
         # Update weights
         W_star = np.linalg.inv(V_hat + tau_new * np.eye(n))
+        B_star = (n - p - 2) / (n - p) * W_star @ V_hat
+        beta_star = B_star @ mu_star + (np.eye(n) - B_star) @ beta_hat
+        # B_star = tau_tilde2 * np.linalg.inv(V_hat + tau_tilde2 * np.eye(n))
 
         # Check convergence
         logger.debug(f"Iter {_}: tau^2 = {tau_new}")
@@ -117,8 +120,8 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
         tau_tilde2 = tau_new
 
     # Final B_star
-    B_star = tau_tilde2 * np.linalg.inv(V_hat + tau_tilde2 * np.eye(n))
-    beta_star = B_star @ mu_star + (np.eye(n) - B_star) @ beta_hat
+    # B_star = tau_tilde2 * np.linalg.inv(V_hat + tau_tilde2 * np.eye(n))
+    # beta_star = B_star @ mu_star + (np.eye(n) - B_star) @ beta_hat
 
     # Covariance adjustment
     be = B_star @ e
@@ -157,12 +160,12 @@ def fit_semiBayes(model, tau2=1.0):
 
     n = len(beta_hat)
     p = 1
-    Z = np.ones((n, p))
+    Z = np.ones((n, 1))
 
     W = np.linalg.inv(V_hat + tau2 * np.eye(n))
     B = W @ V_hat
-    pi_tilde = B @ beta_hat
-    mu_tilde = pi_tilde  # since Z=1
+    pi_tilde = np.linalg.inv(Z.T @ W @ Z) @ (Z.T @ W @ beta_hat)
+    mu_tilde = Z @ pi_tilde  # since Z=1
     C_tilde = V_hat @ (np.eye(n) - (n - p) * B / n)  # see ADEMP doc for A def
 
     beta_tilde = B @ mu_tilde + (np.eye(n) - B) @ beta_hat
