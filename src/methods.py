@@ -101,6 +101,7 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
         R = (e.T @ W_star @ e) / np.trace(W_star)
 
         # Update tau^2
+        # TODO: confirm V_bar_star calculation - I think it's wrong.
         V_bar_star = np.trace(W_star @ V_hat) / np.trace(W_star)
         tau_new = max(n * R / (n - p) - V_bar_star, 1e-8)  # avoid negative
 
@@ -123,6 +124,15 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
     be = B_star @ e
     A = 2 * np.outer(be, be) / (n - p)
     C_star = V_hat @ (np.eye(n) - (n - p) * B_star / n) + A
+
+    # Final adjustment to variances; put into the final output of C*
+    H_star = Z @ np.linalg.inv(Z.T @ W_star @ Z) @ Z.T @ W_star
+    adjusted_beta_vars = (
+        np.diagonal(V_hat)
+        - (1 - np.diagonal(H_star)) * (np.diagonal(V_hat @ B_star))
+        + (V_bar_star + tau_tilde2) * np.diagonal(W_star) * np.diagonal(A)
+    )
+    np.fill_diagonal(C_star, adjusted_beta_vars)
 
     return parametricEBResults(beta_star, C_star, tau_tilde2)
 
@@ -147,10 +157,21 @@ def fit_semiBayes(model, tau2=1.0):
 
     n = len(beta_hat)
     p = 1
-    B = np.linalg.inv((V_hat + tau2 * np.eye(len(beta_hat))))
+    Z = np.ones((n, p))
+
+    W = np.linalg.inv(V_hat + tau2 * np.eye(n))
+    B = W @ V_hat
     pi_tilde = B @ beta_hat
     mu_tilde = pi_tilde  # since Z=1
     C_tilde = V_hat @ (np.eye(n) - (n - p) * B / n)  # see ADEMP doc for A def
 
     beta_tilde = B @ mu_tilde + (np.eye(n) - B) @ beta_hat
+
+    # update variances of C_tilde
+    H_tilde = Z @ np.linalg.inv(Z.T @ W @ Z) @ Z.T @ W
+    var_adjusted = np.diagonal(V_hat) - (1 - np.diagonal(H_tilde)) * np.diagonal(
+        V_hat @ B
+    )
+    np.fill_diagonal(C_tilde, var_adjusted)
+
     return semiBayesResults(beta_tilde, C_tilde)

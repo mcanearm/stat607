@@ -128,10 +128,6 @@ def run_simulation(
     while len(sim_results) < N_sim:
         i += 1
         try:
-            # with warnings.catch_warnings():
-            #     warnings.simplefilter("ignore", RuntimeWarning)
-            #     warnings.simplefilter("ignore", ConvergenceWarning)
-            #     warnings.simplefilter("ignore", PerfectSeparationWarning)
             sim_output = _run_simulation()
         except Exception as e:
             logger.debug(
@@ -160,6 +156,9 @@ def run_simulation(
         **{f"eb_{k}": v for k, v in ebParams.items()},
         **generation_kwargs,
         **data_generation_fn.__dict__,
+        "total_attempts": i,
+        "successful_simulations": len(sim_results),
+        "success_rate": len(sim_results) / i,
     }
     return sim_output
 

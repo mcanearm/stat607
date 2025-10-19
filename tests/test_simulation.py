@@ -46,3 +46,32 @@ def test_save_simulation(simulation_run, tmpdir):
         simulation_run["beta_hat"].values == loaded_sim_run["beta_hat"].values
     )
     assert loaded_sim_run.rng.normal() == simulation_run.rng.normal()
+
+
+def test_coverage_comparison():
+    # All simulations in the paper had over 95% coverage, or maybe some variant
+    # of 94%. If it's less than that, we're doing something wrong in the fit methods.
+    rng = np.random.default_rng(42)
+    generate_data = DatasetGenerator(
+        n=4, rho=0.5, tau_0=0.2, tau_1=0.2, sigma2=0.5, rng=rng
+    )
+
+    sim_results = run_simulation(
+        N_sim=500,
+        data_generation_fn=generate_data,
+        N=100,
+        sbParams={"tau2": 1.0},
+    )
+
+    true_beta = sim_results["true_beta"]
+    beta_hat = sim_results["beta_hat"][:, 0, :, :]
+    se = sim_results["beta_hat"][:, 1, :, :]
+
+    lower_ci = beta_hat - 1.96 * se
+    upper_ci = beta_hat + 1.96 * se
+
+    coverage = ((true_beta >= lower_ci) & (true_beta <= upper_ci)).mean(
+        dim="simulation"
+    )
+
+    assert np.all(coverage >= 0.94)

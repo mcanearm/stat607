@@ -71,7 +71,7 @@ C & = \begin{bmatrix}
 1 &  \cdots & r \\
 \vdots & \ddots & \vdots \\
 r &  \cdots & 1
-\end{bmatrix}_{n \times n} \\
+\end{bmatrix}_{n \times n}, r = 0.5 \\
 Z_i \in \mathbb{R}^n & \sim N(\textbf{0}, C) \\
 c_j & \sim \text{Unif}(-0.25, 0.25) \\
 X_{ij} &= \begin{cases}
@@ -93,7 +93,7 @@ Pr(y_k = 1) & = \omega_k/(1+\omega_k) \\
 \end{align*}
 $$
 
-where $\textbf{x}_k$ represents the exposures for a particular individual and $\epsilon_k$ represents an individual level imprecision. In each trial, $\alpha = -\frac{1}{n}\sum_{k=1}^n \textbf{x}_k \beta + \epsilon_k$, which gives a roughly 50/50 division of positive to negative cases, because this "produced efficient simulations." 
+where $\textbf{x}_k$ represents the exposures for a particular individual and $\epsilon_k$ represents an individual level imprecision. In each trial, $\alpha = -\frac{1}{n}\sum_{k=1}^n \textbf{x}_k \beta + \epsilon_k$, which gives a roughly 50/50 division of positive to negative cases, because this "produced efficient simulations."
 
 ## Estimands/Targets
 
@@ -109,8 +109,7 @@ We need closed form solutions for each of these. Logistic regression is common p
 
 The random effect $\hat{\beta}$ were computed from each sample $(y, X)$ under model 8, the normal logistic regression model. This is mis-specified because there is no assumed error term for each individual under the normal model, $\epsilon_k$.
 
-
-### Important Methods across EB and SB methods
+### Important Values across EB and SB methods
 
 $$
 B = (\hat{V} + \tau^2 I_n)^{-1} \hat{V}
@@ -142,6 +141,14 @@ C^* &= \hat{V}[I - (n-p)B^*/n] + A
 \end{align*}
 $$
 
+After finding these values, there is an adjustment to the estimated variances of the beta coefficients.
+
+$$
+v_i^* = \hat{V}_{ii} - (1-\tilde{H}_{ii})(\hat{V}B^*)_{ii} + (\bar{V}_{ii}^* + \tilde{\tau}^2I)W_{ii}^*A_{ii}.
+$$
+
+where $H^* = Z(Z^T W^*Z)^{-1}Z^TW^*$ and $\bar{V}^* = \frac{W^*V}{\sum_{ij}W^*_{ij}}$
+
 ### Semi-Bayes (SB)
 
 Similar, but smaller set. $\tilde{C}$ is the posterior covariance of the MVN distribution for $\beta$. Also,
@@ -158,7 +165,15 @@ W &= (\hat{V} + \tau^2I)^{-1}
 \end{align*}
 $$
 
-## Performance 
+with an adjustment to the Beta variances of
+
+$$
+v_i^* = \hat{V}_{ii} - (1-\tilde{H}_{ii})(\hat{V}B)_{ii}
+$$
+
+where $\tilde{H} = Z(Z^T \tilde{W}Z)^{-1}Z^T\tilde{W}$. Note that $\tilde{W}$ does not seem to be defined in the paper, so we are using $W=\tilde{W}$.
+
+## Performance
 
 - Mean coverage rates of 95% interval for $\hat\beta$
 - Mean lengths of simulated 95% confidence intervals
