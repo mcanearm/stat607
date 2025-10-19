@@ -11,13 +11,10 @@ loglevel = os.environ.get("LOGLEVEL", "ERROR")
 logging.basicConfig(level=loglevel)
 logger = logging.getLogger(__name__)
 
-output_dir = Path("./results/")
+output_dir = Path("./results/raw/")
 
 
 if __name__ == "__main__":
-    # rng = np.random.default_rng(8190)
-
-    output_dir = Path("./results/")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     scenarios1 = product(
@@ -52,3 +49,8 @@ if __name__ == "__main__":
             mleParams={"disp": False, "maxiter": 500},
         )
         save_simulation_output(results, output_dir)
+        logger.info(
+            "Scenario complete: n={}, N={}, true_tau={}, prior_tau={}".format(
+                n, N, true_tau, prior_tau
+            )
+        )

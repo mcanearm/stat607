@@ -147,10 +147,15 @@ def run_simulation(
         )
     log_dict = {k: v for k, v in data_generation_fn.__dict__.items() if k != "cov_mat"}
     logger.info(
-        f"{N_sim} simulations completed, success rate = {(len(sim_results) / i):0.3f}, parameters: {log_dict}"
+        f"{N_sim} simulations completed, success rate = {(len(sim_results) / i):0.3f}, data_parameters: {log_dict}"
     )
 
-    sim_output = xr.concat(sim_results, dim="simulation")
+    sim_output = xr.concat(
+        sim_results,
+        dim="simulation",
+    )
+    sim_output = sim_output.assign_coords(simulation=np.arange(N_sim))
+
     sim_output.attrs = {
         "N": N_sim,
         **{f"sb_{k}": v for k, v in sbParams.items()},

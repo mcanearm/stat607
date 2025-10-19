@@ -5,4 +5,6 @@ scenarios = list(Path("./results/raw/").glob("*.pkl"))
 
 sim_results = [load_simulation_output(scenario) for scenario in scenarios]
 
-sim_results[0].attrs
+sim_results[0]
+
+sim_results[0]["beta_hat"][:, 0, :, :]
