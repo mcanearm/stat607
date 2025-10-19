@@ -17,6 +17,26 @@ logger = logging.getLogger(__name__)
 
 
 def get_sim_args(func, sim_args: dict, prepend=None):
+    """
+    Get default arguments from a function signature and
+    override with any provided arguments to a simulation.
+
+    Parameters
+    ----------
+    func : function
+        Function to inspect for default arguments.
+    sim_args : dict
+        Dictionary of arguments to override defaults.
+    prepend : str, optional
+        String to prepend to argument names when looking up defaults; prevents
+        name collisions when multiple functions have arguments with the same name;
+        and this is necessary since you'll probably be stuffing all of these
+        arguments into a single dictionary.
+
+    Returns
+    -------
+    sim_args_complete : dict
+    """
     signature = inspect.signature(func)
     prepend = prepend + "_" if prepend else ""
     default_args = {
@@ -38,6 +58,28 @@ def run_simulation(
     mleParams=None,
     **generation_kwargs,
 ):
+    """
+    Run a simulation scenario comparing MLE, Parametric EB, and Semi-Bayes methods.
+    Parameters
+    ----------
+    N_sim : int
+        Number of simulation replications.
+    data_generation_fn : function
+        Data generation function that returns X, y, beta_true. Since each simulation needs its own
+        dataset, this should be a callable that generates a new dataset each time it is called.
+    sbParams : dict, optional
+        Parameters to pass to fit_semiBayes.
+    ebParams : dict, optional
+        Parameters to pass to fit_parametricEB.
+    mleParams : dict, optional
+        Parameters to pass to fit_mle.
+    **generation_kwargs : dict
+        Additional keyword arguments to pass to data_generation_fn.
+    Returns
+    -------
+    sim_output : xarray.Dataset
+        Dataset containing simulation results.
+    """
     # get default from fitting functions if this is an empty dict
     sbParams = get_sim_args(fit_semiBayes, sbParams or {})
     ebParams = get_sim_args(fit_parametricEB, ebParams or {})
@@ -119,7 +161,18 @@ def run_simulation(
     return sim_output
 
 
-def construct_fp(sim_results):
+def construct_fp(sim_results: xr.Dataset) -> Path:
+    """
+    Construct a filename for saving simulation results based on attributes.
+    Parameters
+    ----------
+    sim_results : xarray.Dataset
+        Simulation results dataset with attributes; the result of the run_simulation function.
+    Returns
+    -------
+    filename : Path
+        Constructed filename.
+    """
     filename = (
         f"sim_N={sim_results.attrs['N']}_n={sim_results.attrs['n']}"
         f"_rho={sim_results.attrs['rho']}_tau0={sim_results.attrs['tau_0']}"
@@ -129,6 +182,18 @@ def construct_fp(sim_results):
 
 
 def save_simulation_output(sim_data: xr.Dataset, output_dir: str | Path):
+    """
+    Save simulation results to a specified directory.
+    Parameters
+    ----------
+    sim_data : xarray.Dataset
+        Simulation results dataset.
+    output_dir : str or Path
+        Directory to save the results.
+    Returns
+    -------
+    None
+    """
     filename = construct_fp(sim_data)
     output_path = Path(output_dir) / filename
     with open(output_path, "wb") as f:
@@ -136,7 +201,18 @@ def save_simulation_output(sim_data: xr.Dataset, output_dir: str | Path):
     logging.info(f"Simulation results saved to {output_path}")
 
 
-def load_simulation_output(file_path: str) -> xr.Dataset:
+def load_simulation_output(file_path: str | Path) -> xr.Dataset:
+    """
+    Load simulation results from a specified file.
+    Parameters
+    ----------
+    file_path : Path|str
+        Path to the file containing simulation results.
+    Returns
+    -------
+    sim_data : xarray.Dataset
+        Loaded simulation results dataset.
+    """
     with open(file_path, "rb") as f:
         sim_data = pkl.load(f)
     logging.info(f"Simulation results loaded from {file_path}")
