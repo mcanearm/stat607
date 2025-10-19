@@ -119,23 +119,50 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
             break
         tau_tilde2 = tau_new
 
-    # Final B_star
-    # B_star = tau_tilde2 * np.linalg.inv(V_hat + tau_tilde2 * np.eye(n))
-    # beta_star = B_star @ mu_star + (np.eye(n) - B_star) @ beta_hat
+    # post convergence estimates
+    # inside fit_parametricEB after convergence
+    W_star = np.linalg.inv(V_hat + tau_tilde2 * np.eye(n))
 
-    # Covariance adjustment
+    # B*: use W*V with the small-sample factor
+    B_star = ((n - p - 2) / (n - p)) * (W_star @ V_hat)
+
+    # posterior mean
+    beta_star = B_star @ mu_star + (np.eye(n) - B_star) @ beta_hat
+
+    # A term
+    e = beta_hat - mu_star
     be = B_star @ e
     A = 2 * np.outer(be, be) / (n - p)
+
+    # base covariance (eq. (4))
     C_star = V_hat @ (np.eye(n) - (n - p) * B_star / n) + A
 
-    # Final adjustment to variances; put into the final output of C*
+    # componentwise variance (eq. (12))
     H_star = Z @ np.linalg.inv(Z.T @ W_star @ Z) @ Z.T @ W_star
-    adjusted_beta_vars = (
-        np.diagonal(V_hat)
-        - (1 - np.diagonal(H_star)) * (np.diagonal(V_hat @ B_star))
-        + (V_bar_star + tau_tilde2) * np.diagonal(W_star) * np.diagonal(A)
+    v_star = np.trace(W_star @ V_hat) / np.trace(W_star)  # v*
+    VBs = V_hat @ B_star
+    WA = W_star @ A  # *** matrix product ***
+
+    adj_vars = (
+        np.diag(V_hat)
+        - (1.0 - np.diag(H_star)) * np.diag(VBs)
+        + (v_star + tau_tilde2) * np.diag(WA)
     )
-    np.fill_diagonal(C_star, adjusted_beta_vars)
+    np.fill_diagonal(C_star, adj_vars)
+
+    # # Covariance adjustment
+    # be = B_star @ e
+    # A = 2 * np.outer(be, be) / (n - p)
+    # C_star = V_hat @ (np.eye(n) - (n - p) * B_star / n) + A
+
+    # # Final adjustment to variances; put into the final output of C*
+    # H_star = Z @ np.linalg.inv(Z.T @ W_star @ Z) @ Z.T @ W_star
+    # adjusted_beta_vars = (
+    #     np.diagonal(V_hat)
+    #     - (1 - np.diagonal(H_star)) * (np.diagonal(V_hat @ B_star))
+    #     + (V_bar_star + tau_tilde2) * np.diagonal(W_star) * np.diagonal(A)
+    # )
+    # np.fill_diagonal(C_star, adjusted_beta_vars)
 
     return parametricEBResults(beta_star, C_star, tau_tilde2)
 
