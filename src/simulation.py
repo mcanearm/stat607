@@ -6,11 +6,7 @@ from pathlib import Path
 
 import pickle as pkl
 from src.dgps import DatasetGenerator
-from src.methods import fit_mle, fit_parametricEB, fit_semiBayes
-
-
-from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
-import warnings
+from src.methods import fit_mle, fit_parametricEB, fit_semiBayes, __get_mle_vhat
 
 
 logger = logging.getLogger(__name__)
@@ -93,7 +89,9 @@ def run_simulation(
         parametric_eb = fit_parametricEB(mle, **ebParams)
         semi_bayes = fit_semiBayes(mle, **sbParams)
 
-        mle_beta, mle_cov = mle.params, np.diagonal(mle.cov_params())
+        mle_beta, mle_cov = __get_mle_vhat(mle)
+        mle_cov = np.diagonal(mle_cov)
+
         pb_beta, pb_cov, _ = parametric_eb
         sb_beta, sb_cov = semi_bayes
 
@@ -130,11 +128,11 @@ def run_simulation(
     while len(sim_results) < N_sim:
         i += 1
         try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", RuntimeWarning)
-                warnings.simplefilter("ignore", ConvergenceWarning)
-                warnings.simplefilter("ignore", PerfectSeparationWarning)
-                sim_output = _run_simulation()
+            # with warnings.catch_warnings():
+            #     warnings.simplefilter("ignore", RuntimeWarning)
+            #     warnings.simplefilter("ignore", ConvergenceWarning)
+            #     warnings.simplefilter("ignore", PerfectSeparationWarning)
+            sim_output = _run_simulation()
         except Exception as e:
             logger.debug(
                 f"Simulation iteration {i} failed: {e} -- success_rate = {(len(sim_results) / i):0.3f}"

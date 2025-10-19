@@ -11,12 +11,17 @@ def __get_mle_vhat(model):
     Extract MLE estimates and covariance from a fitted statsmodels model.
     Simple helper function to avoid boilerplate code in EB and SB methods.
     """
-    beta_hat = model.params.values if hasattr(model.params, "values") else model.params
+
+    # ignore the intercept
+    beta_hat = (
+        model.params.values[1:] if hasattr(model.params, "values") else model.params[1:]
+    )
     V_hat = (
         model.cov_params().values
         if hasattr(model.cov_params(), "values")
         else model.cov_params()
     )
+    V_hat = V_hat[1:, 1:]  # drop intercept row/col
     return beta_hat, V_hat
 
 
@@ -37,7 +42,8 @@ def fit_mle(X, y, **fit_params):
     model: statsmodels.discrete.discrete_model.BinaryResults
     """
 
-    fit_params = fit_params or {"disp": False, "maxiter": 1000}
+    fit_params = fit_params or {"disp": False, "maxiter": 100}
+    X = sm.add_constant(X.astype(int))
 
     model = sm.Logit(y, X).fit(**fit_params)
     return model

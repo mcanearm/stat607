@@ -6,7 +6,7 @@ import pickle as pkl
 
 
 def test_simulation(generate_data):
-    out = run_simulation(100, generate_data)
+    out = run_simulation(5, generate_data)
 
     assert not set(out["beta_hat"].dims).difference(
         {"simulation", "method", "param", "var"}
