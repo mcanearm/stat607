@@ -43,7 +43,7 @@ def test_mean_interval_length(sample_output):
     assert np.all(mil_normalized >= 0), (
         "Normalized mean interval lengths must be non-negative"
     )
-    assert np.all(mil_normalized.sel(method="mle") == 1.0), (
+    assert np.all(mil_normalized.sel(estimator="mle") == 1.0), (
         "MLE normalized lengths must be 1.0"
     )
 
@@ -58,14 +58,14 @@ def test_summary_results(sample_output):
         "normalized_mean_interval_length",
     ]
 
-    assert set(summary.coords["method"].values) == set(expected_methods), (
+    assert set(summary.coords["estimator"].values) == set(expected_methods), (
         "Methods in summary results mismatch"
     )
     assert set(summary.coords["metric"].values) == set(expected_metrics), (
         "Metrics in summary results mismatch"
     )
     assert summary.shape == (
-        len(expected_methods),
         len(expected_metrics),
+        len(expected_methods),
         sample_output.dims["param"],
     ), "Summary results shape mismatch"

@@ -12,8 +12,8 @@ def get_coverage(sim_results: xr.Dataset) -> xr.DataArray:
 
     # Expand true_beta along method dimension so shapes align
     true_beta_expanded = true_beta.expand_dims(
-        method=sim_results.coords["method"]
-    ).transpose("simulation", "method", "param")
+        estimator=sim_results.coords["estimator"]
+    ).transpose("simulation", "estimator", "param")
 
     lower = beta_hat - 1.96 * se_hat
     upper = beta_hat + 1.96 * se_hat
@@ -32,8 +32,8 @@ def rmse(sim_results: xr.Dataset) -> xr.DataArray | np.ndarray:
 
     # Expand true_beta along method dimension so shapes align
     true_beta_expanded = true_beta.expand_dims(
-        method=sim_results.coords["method"]
-    ).transpose("simulation", "method", "param")
+        estimator=sim_results.coords["estimator"]
+    ).transpose("simulation", "estimator", "param")
 
     mse = ((beta_hat - true_beta_expanded) ** 2).mean(dim="simulation")
     rmse = np.sqrt(mse)
@@ -65,18 +65,15 @@ def summarize_results(sim_results: xr.Dataset) -> xr.DataArray:
     mil = mean_interval_length(sim_results)
     mil_normalized = mean_interval_length(sim_results, normalize_by_mle=True)
 
-    summary_results = xr.DataArray(
-        [coverage, rmse_values, mil, mil_normalized],
-        dims=["metric", "method", "param"],
-        coords={
-            "metric": [
-                "coverage",
-                "rmse",
-                "mean_interval_length",
-                "normalized_mean_interval_length",
-            ],
-            "method": sim_results.coords["method"].values,
-            "param": sim_results.coords["param"].values,
-        },
+    metrics = [
+        ("coverage", coverage),
+        ("rmse", rmse_values),
+        ("mean_interval_length", mil),
+        ("normalized_mean_interval_length", mil_normalized),
+    ]
+    summary_results = xr.concat(
+        [da for _, da in metrics],
+        dim=xr.IndexVariable("metric", [name for name, _ in metrics]),
     )
+
     return summary_results

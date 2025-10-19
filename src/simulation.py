@@ -121,12 +121,12 @@ def run_simulation(
 
         sim_estimates = xr.Dataset(
             {
-                "beta_hat": (("var", "method", "param"), beta_estimates),
+                "beta_hat": (("var", "estimator", "param"), beta_estimates),
                 "true_beta": (("param",), beta),
             },
             coords={
                 "var": ["estimate", "std_error"],
-                "method": ["mle", "parametric_eb", "semi_bayes"],
+                "estimator": ["mle", "parametric_eb", "semi_bayes"],
                 "param": [f"beta{i + 1}" for i in range(X.shape[1])],
             },
         )
