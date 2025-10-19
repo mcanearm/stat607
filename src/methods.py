@@ -45,7 +45,11 @@ def fit_mle(X, y, **fit_params):
     fit_params = fit_params or {"disp": False, "maxiter": 100}
     X = sm.add_constant(X.astype(int))
     model = sm.Logit(y, X).fit(**fit_params)
-    return model
+
+    if not model.mle_retvals["converged"]:
+        raise RuntimeError("MLE fitting did not converge.")
+    else:
+        return model
 
 
 parametricEBResults = namedtuple(
