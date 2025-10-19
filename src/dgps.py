@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import json
 import pickle as pkl
 from pathlib import Path
-from typing import Union
+from typing import Union, Mapping
 
 
 logger = logging.getLogger(__name__)
@@ -61,6 +61,7 @@ class SimulatedData(object):
     tau_1: float
     sigma2: float
     rng: np.random.Generator
+    generator_state: Mapping
 
     def __post_init__(self):
         self.N = self.X.shape[0]
@@ -172,7 +173,10 @@ class DatasetGenerator(object):
         self.rng = rng
         self.cov_mat = create_covariance_matrix(n, rho)
 
-    def __call__(self, N=100) -> SimulatedData:
+    def __call__(self, N=100, state: Union[Mapping, None] = None) -> SimulatedData:
+        if state is not None:
+            self.rng.bit_generator.state = state
+        generator_state = self.rng.bit_generator.state
         true_beta = self.generate_beta()
         X, y = self.generate_design_matrix(N, true_beta)
         return SimulatedData(
@@ -185,6 +189,7 @@ class DatasetGenerator(object):
             self.tau_1,
             self.sigma2,
             self.rng,
+            generator_state,
         )
 
     def generate_design_matrix(self, N, true_beta):

@@ -44,10 +44,7 @@ def test_data_simulation(N, n, rho):
 
 # tmp_path is a fixture that is always available in pytest
 def test_saving_loading(tmpdir):
-    rng = np.random.default_rng(42)
-    generate_data = DatasetGenerator(
-        n=5, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0, rng=rng
-    )
+    generate_data = DatasetGenerator(n=5, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0)
     simulated_data = generate_data(100)
 
     output_file = simulated_data.save(tmpdir)
@@ -62,5 +59,9 @@ def test_saving_loading(tmpdir):
     assert simulated_data.tau_1 == loaded_data.tau_1
     assert simulated_data.sigma2 == loaded_data.sigma2
 
-    # ensure rng state is the same between loaded and generated
-    assert np.isclose(loaded_data.rng.normal(), simulated_data.rng.normal())
+    # ensure rng state can be recreated exactly
+    X, Y, beta = generate_data(100, state=simulated_data.generator_state)
+
+    assert np.array_equal(X, loaded_data.X)
+    assert np.array_equal(Y, loaded_data.y)
+    assert np.array_equal(beta, loaded_data.true_beta)
