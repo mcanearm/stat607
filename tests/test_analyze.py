@@ -25,19 +25,19 @@ def test_get_coverage(sample_output):
 
 def test_rmse(sample_output):
     rmse_values = rmse(sample_output)
-    assert rmse_values.shape == (3, sample_output.dims["param"]), "RMSE shape mismatch"
+    assert rmse_values.shape == (5, sample_output.dims["param"]), "RMSE shape mismatch"
     assert np.all(rmse_values >= 0), "RMSE values must be non-negative"
 
 
 def test_mean_interval_length(sample_output):
     mil = mean_interval_length(sample_output)
-    assert mil.shape == (3, sample_output.dims["param"]), (
+    assert mil.shape == (5, sample_output.dims["param"]), (
         "Mean interval length shape mismatch"
     )
     assert np.all(mil > 0), "Mean interval lengths must be positive"
 
     mil_normalized = mean_interval_length(sample_output, normalize_by_mle=True)
-    assert mil_normalized.shape == (3, sample_output.dims["param"]), (
+    assert mil_normalized.shape == (5, sample_output.dims["param"]), (
         "Normalized mean interval length shape mismatch"
     )
     assert np.all(mil_normalized >= 0), (
@@ -50,7 +50,13 @@ def test_mean_interval_length(sample_output):
 
 def test_summary_results(sample_output):
     summary = summarize_results(sample_output)
-    expected_methods = ["mle", "parametric_eb", "semi_bayes"]
+    expected_methods = [
+        "mle",
+        "parametric_eb",
+        "semi_bayes_0.5",
+        "semi_bayes_1.0",
+        "semi_bayes_2.0",
+    ]
     expected_metrics = [
         "coverage",
         "rmse",

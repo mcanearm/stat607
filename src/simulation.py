@@ -98,22 +98,30 @@ def run_simulation(
 
         mle = fit_mle(X, y)
         parametric_eb = fit_parametricEB(mle, **ebParams)
-        semi_bayes = fit_semiBayes(mle, **sbParams)
+
+        semi_bayes_results = [
+            fit_semiBayes(mle, **{**sbParams, "tau2": ratio})
+            for ratio in [0.5, 1.0, 2.0]
+        ]
 
         mle_beta, mle_cov = __get_mle_vhat(mle)
         mle_cov = np.diagonal(mle_cov)
 
         pb_beta, pb_cov, _ = parametric_eb
-        sb_beta, sb_cov = semi_bayes
+        sb_beta_0, sb_cov_0 = semi_bayes_results[0]
+        sb_beta_1, sb_cov_1 = semi_bayes_results[1]
+        sb_beta_2, sb_cov_2 = semi_bayes_results[2]
 
         beta_estimates = np.stack(
             [
-                np.stack([mle_beta, pb_beta, sb_beta]),
+                np.stack([mle_beta, pb_beta, sb_beta_0, sb_beta_1, sb_beta_2]),
                 np.stack(
                     [
                         np.sqrt(mle_cov),
                         np.sqrt(np.diagonal(pb_cov)),
-                        np.sqrt(np.diagonal(sb_cov)),
+                        np.sqrt(np.diagonal(sb_cov_0)),
+                        np.sqrt(np.diagonal(sb_cov_1)),
+                        np.sqrt(np.diagonal(sb_cov_2)),
                     ]
                 ),
             ]
@@ -126,7 +134,13 @@ def run_simulation(
             },
             coords={
                 "var": ["estimate", "std_error"],
-                "estimator": ["mle", "parametric_eb", "semi_bayes"],
+                "estimator": [
+                    "mle",
+                    "parametric_eb",
+                    "semi_bayes_0.5",
+                    "semi_bayes_1.0",
+                    "semi_bayes_2.0",
+                ],
                 "param": [f"beta{i + 1}" for i in range(X.shape[1])],
             },
         )
@@ -169,7 +183,10 @@ def run_simulation(
 
     sim_output.attrs = {
         "N": N_sim,
-        **{f"sb_{k}": v for k, v in sbParams.items()},
+        **{
+            **{f"sb_{k}": v for k, v in sbParams.items()},
+            "prior_tau_ratio": [0.5, 1.0, 2.0],
+        },
         **{f"eb_{k}": v for k, v in ebParams.items()},
         **generation_kwargs,
         **data_generation_fn.__dict__,
@@ -218,7 +235,7 @@ def save_simulation_output(sim_data: xr.Dataset, output_dir: str | Path):
     output_path = Path(output_dir) / filename
     with open(output_path, "wb") as f:
         pkl.dump(sim_data, f)
-    logging.info(f"Simulation results saved to {output_path}")
+    logger.info(f"Simulation results saved to {output_path}")
 
 
 def load_simulation_output(file_path: str | Path) -> xr.Dataset:
@@ -235,5 +252,5 @@ def load_simulation_output(file_path: str | Path) -> xr.Dataset:
     """
     with open(file_path, "rb") as f:
         sim_data = pkl.load(f)
-    logging.info(f"Simulation results loaded from {file_path}")
+    logger.info(f"Simulation results loaded from {file_path}")
     return sim_data

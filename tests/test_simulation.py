@@ -11,7 +11,13 @@ def test_simulation(generate_data):
     assert not set(out["beta_hat"].dims).difference(
         {"simulation", "estimator", "param", "var"}
     )
-    assert set(out.coords["estimator"].values) == {"mle", "parametric_eb", "semi_bayes"}
+    assert set(out.coords["estimator"].values) == {
+        "mle",
+        "parametric_eb",
+        "semi_bayes_0.5",
+        "semi_bayes_1.0",
+        "semi_bayes_2.0",
+    }
 
 
 def test_simulation_output(generate_data):
