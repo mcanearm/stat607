@@ -59,7 +59,7 @@ def mean_interval_length(
         return mean_length
 
 
-def summarize_results(sim_results: xr.Dataset) -> xr.DataArray:
+def summarize_results(sim_results: xr.Dataset, trimQ: float = 0.99) -> xr.DataArray:
     coverage = get_coverage(sim_results)
     rmse_values = rmse(sim_results)
     mil = mean_interval_length(sim_results)
@@ -78,3 +78,25 @@ def summarize_results(sim_results: xr.Dataset) -> xr.DataArray:
     summary_results.attrs = sim_results.attrs
 
     return summary_results
+
+
+def concat_results(results: list[xr.Dataset], new_dim: str = "scenario") -> xr.Dataset:
+    """Concatenate simulation results along a new dimension, but preserve
+    other metadata that is normally lost in xr.concat
+
+    Args:
+        results: List of xarray Datasets, each containing simulation results.
+        dim: Name of the new dimension to concatenate along.
+
+    Returns:
+        A single xarray Dataset with all simulations concatenated.
+    """
+    all_keys = {k for ds in results for k in ds.attrs.keys()}
+    listed_metadata = {
+        k: [ds.attrs.get(k) for ds in results if k in ds.attrs] for k in all_keys
+    }
+    out = xr.concat(results, dim="scenario", coords="all").assign_coords(
+        scenario=np.arange(len(results))
+    )
+    out.attrs = listed_metadata
+    return out

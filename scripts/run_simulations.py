@@ -27,7 +27,7 @@ scenarios2 = product([20], [100, 500, 2000])  # n, N, true_tau
 scenarios = list(scenarios1) + list(scenarios2)
 
 
-loglevel = os.environ.get("LOGLEVEL", "ERROR")
+loglevel = os.environ.get("LOGLEVEL", "INFO")
 logging.basicConfig(level=loglevel)
 logger = logging.getLogger(__name__)
 
@@ -71,10 +71,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run simulations for various scenarios."
     )
-    parser.add_argument("--processes", type=int, default=1, dest="cores")
+    parser.add_argument("--num-cores", type=int, default=1, dest="cores")
     args = parser.parse_args()
     core_count = args.cores
-    (OUTPUT_DIR := args.output_dir).mkdir(parents=True, exist_ok=True)
 
     with Pool(processes=core_count) as p:
-        p.imap_unordered(run_scenario, scenarios)
+        list(p.imap_unordered(run_scenario, scenarios))

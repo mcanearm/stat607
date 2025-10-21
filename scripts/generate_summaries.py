@@ -9,11 +9,13 @@ from src.analysis import summarize_results
 # CONSTANTS
 INPUT_DIR = Path("./results/raw/")  # should already exist...
 (OUTPUT_DIR := Path("./results/processed/")).mkdir(parents=True, exist_ok=True)
+TRIM_Q = 0.995  # set to None to disable trimming
 
 
 def get_summary_df(result_summary):
     # Get summary statistics across all parameters; we're treating each beta_j
     # equally here.
+
     mean_params = (
         result_summary.mean(dim="param").to_dataframe(name="value").reset_index()
     )
@@ -46,6 +48,7 @@ def get_summary_df(result_summary):
         full_summary["summary_type"] + "_" + full_summary["quantile"].astype(str),
         full_summary["summary_type"],
     )
+    full_summary = full_summary.drop(columns=["quantile"])
 
     return full_summary
 
@@ -59,7 +62,6 @@ if __name__ == "__main__":
         res_files.append(sim_data)
 
     result_summaries = [summarize_results(dat) for dat in res_files]
-
     summary_df = pd.concat([get_summary_df(rs) for rs in result_summaries])
 
     outputFile = OUTPUT_DIR / "simulation_summaries.csv"

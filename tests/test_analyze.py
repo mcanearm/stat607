@@ -1,7 +1,13 @@
 import pytest
 import numpy as np
 from src.simulation import run_simulation
-from src.analysis import get_coverage, rmse, mean_interval_length, summarize_results
+from src.analysis import (
+    get_coverage,
+    rmse,
+    mean_interval_length,
+    summarize_results,
+    concat_results,
+)
 
 
 @pytest.fixture
@@ -75,3 +81,17 @@ def test_summary_results(sample_output):
         len(expected_methods),
         sample_output.dims["param"],
     ), "Summary results shape mismatch"
+
+
+def test_concat_results(sample_output):
+    # Create a second sample output with different parameters
+    sample_out1 = sample_output.copy()
+    sample_out2 = sample_output.copy()
+
+    concatenated = concat_results([sample_out1, sample_out2])
+    assert len(concatenated.attrs["n"]) == 2, (
+        "Concatenated results should store each set of attr values as a list"
+    )
+    assert "scenario" in concatenated.dims, (
+        "Concatenated results should have a new 'scenario' dimension"
+    )

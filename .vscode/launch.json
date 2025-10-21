@@ -10,9 +10,33 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "env": {
-                "PYTHONPATH": "${workspaceFolder}"
-            }
+            "env": { 
+                "PYTHONPATH": "${workspaceFolder}" 
+            },
+        },
+        {
+            "name": "Run Simulations",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/run_simulations.py",
+            "console": "integratedTerminal",
+            "env": { 
+                "PYTHONPATH": "${workspaceFolder}" 
+            },
+            "args": [
+                "--num-cores", "${input:numCores}"
+            ]
         }
     ],
+    
+    "inputs": [
+        { 
+            "id": "numCores",
+            "type": "pickString",
+            "description": "Select number of CPU cores to use",
+            "options": ["1", "2", "4", "8", "16", "32"],
+            "default": "4"
+        }
+    ]
+        
 }

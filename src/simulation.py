@@ -107,6 +107,10 @@ def run_simulation(
         mle_beta, mle_cov = __get_mle_vhat(mle)
         mle_cov = np.diagonal(mle_cov)
 
+        # check for bad values or estimates as evidence of poor convergence
+        if np.any(np.abs((mle_beta - beta)) > 1e3):
+            raise RuntimeError("MLE estimates are unreasonably large.")
+
         pb_beta, pb_cov, _ = parametric_eb
         sb_beta_0, sb_cov_0 = semi_bayes_results[0]
         sb_beta_1, sb_cov_1 = semi_bayes_results[1]
