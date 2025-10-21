@@ -1,16 +1,30 @@
-import os
+import argparse
 import logging
-from src.simulation import run_simulation, save_simulation_output
-from pathlib import Path
-import numpy as np
-from src.dgps import DatasetGenerator
+import os
+import sys
+import warnings
 from itertools import product
 from multiprocessing import Pool
-import sys
+from pathlib import Path
 
-
+import numpy as np
 from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
-import warnings
+
+from src.dgps import DatasetGenerator
+from src.simulation import run_simulation, save_simulation_output, true_tau
+
+# Constants used in the paper by Greenland
+RHO = 0.5
+TAU_0 = TAU_1 = 0.2
+TRUE_TAU = true_tau(TAU_0, TAU_1)
+SIGMA2 = 1.0
+TARGET_SIM_SIZE = 8000  # target number of simulations per scenario
+scenarios1 = product(
+    [4, 10],  # n
+    [40, 100, 500],  # N
+)
+scenarios2 = product([20], [100, 500, 2000])  # n, N, true_tau
+scenarios = list(scenarios1) + list(scenarios2)
 
 
 loglevel = os.environ.get("LOGLEVEL", "ERROR")
@@ -24,13 +38,14 @@ FILTER_WARNINGS = True
 
 
 def run_scenario(scenario):
-    n, N, true_tau = scenario
+    n, N = scenario
     rng = np.random.default_rng()
     data_gen = DatasetGenerator(
-        n=n, tau_0=true_tau, tau_1=true_tau, sigma2=0.5, rng=rng, rho=0.5
+        n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rng=rng, rho=RHO
     )
+    scenario_msg = f"n={n}, N={N}, true_tau={TRUE_TAU:0.3f}"
 
-    logger.info(f"Running scenario: n={n}, N={N}, true_tau={true_tau:0.3f}")
+    logger.info(f"Running scenario: n={n}, N={N}, true_tau={TAU_0:0.3f}")
 
     with warnings.catch_warnings():
         if FILTER_WARNINGS:
@@ -45,7 +60,7 @@ def run_scenario(scenario):
         )
     save_simulation_output(results, OUTPUT_DIR)
     logger.info(
-        f"Scenario complete: n={n}, N={N}, true_tau={true_tau:0.3f}, success_rate={results.attrs['success_rate']:0.3f}"
+        f"Scenario complete: {scenario_msg}, success_rate={results.attrs['success_rate']:0.3f}"
     )
 
     sys.stdout.flush()
@@ -53,15 +68,13 @@ def run_scenario(scenario):
 
 
 if __name__ == "__main__":
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    scenarios1 = product(
-        [4, 10],  # n
-        [40, 100, 500],  # N
-        [0.2],  # true_tau
+    parser = argparse.ArgumentParser(
+        description="Run simulations for various scenarios."
     )
-    scenarios2 = product([20], [100, 500, 2000], [0.2])
-    scenarios = list(scenarios1) + list(scenarios2)
+    parser.add_argument("--processes", type=int, default=1, dest="cores")
+    args = parser.parse_args()
+    core_count = args.cores
+    (OUTPUT_DIR := args.output_dir).mkdir(parents=True, exist_ok=True)
 
-    with Pool(processes=1) as p:  # for now, more processes seems slower, so skip
-        p.map(run_scenario, scenarios)
+    with Pool(processes=core_count) as p:
+        p.imap_unordered(run_scenario, scenarios)

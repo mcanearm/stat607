@@ -13,7 +13,7 @@ from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparatio
 logger = logging.getLogger(__name__)
 
 
-def true_t(tau0, tau1, p=0.2):
+def true_tau(tau0, tau1, p=0.2):
     """
     function to compute the true variance based on the DGP parameters
     """

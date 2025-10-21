@@ -1,5 +1,5 @@
-import xarray as xr
 import numpy as np
+import xarray as xr
 
 
 def get_coverage(sim_results: xr.Dataset) -> xr.DataArray:
@@ -75,5 +75,6 @@ def summarize_results(sim_results: xr.Dataset) -> xr.DataArray:
         [da for _, da in metrics],
         dim=xr.IndexVariable("metric", [name for name, _ in metrics]),
     )
+    summary_results.attrs = sim_results.attrs
 
     return summary_results
