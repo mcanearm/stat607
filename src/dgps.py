@@ -14,7 +14,7 @@ def sigmoid(x):
     return np.exp(x) / (1 + np.exp(x))
 
 
-def create_covariance_matrix(n, rho=0.0):
+def create_covariance_matrix(n, rho=0.0, tol=1e-6):
     """
     Create an n x n covariance matrix with 1s on the diagonal and rho elsewhere.
     """

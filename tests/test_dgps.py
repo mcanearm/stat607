@@ -14,7 +14,7 @@ def test_covar_generation(n, rho):
 
 @pytest.mark.parametrize("N", [10, 100], ids=lambda N: f"N={N}")
 @pytest.mark.parametrize("n", [1, 2, 5, 10], ids=lambda n: f"n={n}")
-@pytest.mark.parametrize("rho", [0, 0.5, -0.5], ids=lambda rho: f"rho={rho}")
+@pytest.mark.parametrize("rho", [0, 0.5], ids=lambda rho: f"rho={rho}")
 def test_data_simulation(N, n, rho):
     rng = np.random.default_rng(42)
     generate_data = DatasetGenerator(

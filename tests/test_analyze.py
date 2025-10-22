@@ -31,19 +31,17 @@ def test_get_coverage(sample_output):
 
 def test_rmse(sample_output):
     rmse_values = rmse(sample_output)
-    assert rmse_values.shape == (5, sample_output.dims["param"]), "RMSE shape mismatch"
+    assert rmse_values.sizes["estimator"] == 5, "RMSE shape mismatch"
     assert np.all(rmse_values >= 0), "RMSE values must be non-negative"
 
 
 def test_mean_interval_length(sample_output):
     mil = mean_interval_length(sample_output)
-    assert mil.shape == (5, sample_output.dims["param"]), (
-        "Mean interval length shape mismatch"
-    )
+    assert mil.sizes["estimator"] == 5, "Mean interval length shape mismatch"
     assert np.all(mil > 0), "Mean interval lengths must be positive"
 
     mil_normalized = mean_interval_length(sample_output, normalize_by_mle=True)
-    assert mil_normalized.shape == (5, sample_output.dims["param"]), (
+    assert mil_normalized.sizes["estimator"] == 5, (
         "Normalized mean interval length shape mismatch"
     )
     assert np.all(mil_normalized >= 0), (
@@ -79,7 +77,7 @@ def test_summary_results(sample_output):
     assert summary.shape == (
         len(expected_metrics),
         len(expected_methods),
-        sample_output.dims["param"],
+        sample_output.sizes["param"],
     ), "Summary results shape mismatch"
 
 

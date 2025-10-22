@@ -24,9 +24,9 @@ def get_coverage(sim_results: xr.Dataset) -> xr.DataArray:
     return coverage_rate
 
 
-def rmse(sim_results: xr.Dataset) -> xr.DataArray | np.ndarray:
+def rmse(sim_results: xr.Dataset) -> xr.DataArray:
     beta_hat = (
-        sim_results["beta_hat"].sel(var="estimate").drop("var")
+        sim_results["beta_hat"].sel(var="estimate").drop_vars("var")
     )  # (simulation, method, param)
     true_beta = sim_results["true_beta"]  # (simulation, param)
 
@@ -37,14 +37,14 @@ def rmse(sim_results: xr.Dataset) -> xr.DataArray | np.ndarray:
 
     mse = ((beta_hat - true_beta_expanded) ** 2).mean(dim="simulation")
     rmse = np.sqrt(mse)
-    return rmse
+    return rmse  # type: ignore
 
 
 def mean_interval_length(
     sim_results: xr.Dataset, normalize_by_mle=False
 ) -> xr.DataArray:
     se_hat = (
-        sim_results["beta_hat"].sel(var="std_error").drop("var")
+        sim_results["beta_hat"].sel(var="std_error").drop_vars("var")
     )  # (simulation, method, param)
 
     interval_length = 2 * 1.96 * se_hat
