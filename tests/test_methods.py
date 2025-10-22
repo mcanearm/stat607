@@ -16,13 +16,19 @@ def mle_model(generated_data):
     return model
 
 
-def test_mle(generated_data):
+def test_coverage(generated_data):
     X, y, true_beta = generated_data
     model = fit_mle(X, y)
     beta_hat, V_hat = __get_mle_vhat(model)
 
+    se_beta = np.sqrt(np.diagonal(V_hat))
+    beta_hat_low = beta_hat - 1.96 * se_beta
+    beta_hat_high = beta_hat + 1.96 * se_beta
+
     assert model
-    assert len(beta_hat) == X.shape[1]
+    assert (
+        np.mean((beta_hat_low < true_beta) & (true_beta < beta_hat_high)) > 0.8
+    )  # at least 80% coverage
 
 
 def test_parametricEB(mle_model):
