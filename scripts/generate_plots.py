@@ -66,19 +66,15 @@ sim_summaries = pd.read_csv("./results/processed/simulation_summaries.csv")
 pairs = (
     sim_summaries[["N", "n"]].drop_duplicates().sort_values(["N", "n"]).values.tolist()
 )
-
-### PLOT 1: Mean Interval Length by Estimator ###
-"""
-This is a diagnostic plot that I'm using to show how off the RMSE is. Hint; it's
-pretty bad for small N, and improves as N increases.
-"""
-pairs = (
-    sim_summaries[["N", "n"]].drop_duplicates().sort_values(["N", "n"]).values.tolist()
-)
 plot_data = sim_summaries.pivot_table(
     index=["N", "n", "estimator", "metric"], columns="summary_type", values="value"
 ).reset_index()
 
+### PLOT 1: Mean Interval Length by Estimator ###
+"""
+This is a diagnostic plot that I'm using to show how off the interval length is. Hint; it's
+pretty bad for small N, and improves as N increases.
+"""
 fig, ax = plt.subplots(ncols=3, nrows=3, figsize=(12, 8), sharey=False, sharex=True)
 ax = ax.flatten()
 for j, (rmse_ns, ax_i) in enumerate(zip(pairs, ax)):
@@ -109,7 +105,6 @@ fig.savefig(FIGDIR / "il_by_estimator_and_sample_size.pdf", dpi=300)
 
 if SHOW:
     plt.show()
-
 
 ### PLOT 2: Coverage Lineplots ###
 # This is mostly me, with a little ChatGPT for improved visuals to make it look
@@ -154,8 +149,8 @@ for j, ((little_n, N_list), ax_i) in enumerate(zip(little_n_pairs.items(), ax)):
 
     ax_i.set_title(f"n = {little_n}", fontsize=12)
     ax_i.grid(True, axis="y")
-    ax_i.yaxis.set_major_formatter(PercentFormatter(5.0))
-    ax_i.set_ylim(0.90, 1.02)  # tweak if your data needs more room
+    ax_i.yaxis.set_major_formatter(PercentFormatter(1.0))
+    ax_i.set_ylim(0.90, 1.00)  # tweak if your data needs more room
 
     if j == 0:
         handles, labels = ax_i.get_legend_handles_labels()

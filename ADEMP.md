@@ -177,4 +177,4 @@ where $\tilde{H} = Z(Z^T \tilde{W}Z)^{-1}Z^T\tilde{W}$. Note that $\tilde{W}$ do
 
 - Mean coverage rates of 95% interval for $\hat\beta$
 - Mean lengths of simulated 95% confidence intervals
-- RMSE of point estimators as percent of error of ML estimator
+- RMSE of point estimators, also as percent of error of ML estimator

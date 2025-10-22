@@ -1,14 +1,14 @@
 test:
-	pytest tests/
+	PYTHONPATH=. pytest tests/
 
 simulate:
-	python ./scripts/run_simulations.py
+	PYTHONPATH=. python ./scripts/run_simulations.py
 
 analyze:
-	python ./scripts/generate_summaries.py
+	PYTHONPATH=. python ./scripts/generate_summaries.py
 
 figures:
-	python ./generate_plots.py
+	PYTHONPATH=. python ./scripts/generate_plots.py
 
 clean:
 	rm -rf results/raw/* results/figures/* results/processed/*
