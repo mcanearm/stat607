@@ -4,6 +4,7 @@ import pandas as pd
 import xarray as xr
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
+import matplotlib.patches as mpatches
 from cycler import cycler
 import pickle as pkl
 from src.analysis import concat_results
@@ -66,7 +67,7 @@ pairs = (
     sim_summaries[["N", "n"]].drop_duplicates().sort_values(["N", "n"]).values.tolist()
 )
 
-### PLOT 1: Mean RMSE Length by Estimator ###
+### PLOT 1: Mean Interval Length by Estimator ###
 """
 This is a diagnostic plot that I'm using to show how off the RMSE is. Hint; it's
 pretty bad for small N, and improves as N increases.
@@ -84,7 +85,7 @@ for j, (rmse_ns, ax_i) in enumerate(zip(pairs, ax)):
     sub_df = plot_data[
         (plot_data["N"] == rmse_ns[0])
         & (plot_data["n"] == rmse_ns[1])
-        & (plot_data["metric"] == "rmse")
+        & (plot_data["metric"] == "mean_interval_length")
     ]  # pick one N for illustration
     x_labels = [generate_plot_labels(s) for s in sub_df["estimator"].values]
     ax_i.errorbar(
@@ -101,10 +102,10 @@ for j, (rmse_ns, ax_i) in enumerate(zip(pairs, ax)):
         ax_i.set_xticklabels(x_labels)
     # ax_i.legend()
 fig.supxlabel("Estimator")
-fig.supylabel("RMSE")
-fig.suptitle("RMSE by Estimator and Sample Size")
+fig.supylabel("Interval Length (mean)")
+fig.suptitle("Mean Interval Length by Estimator and Sample Size")
 fig.tight_layout()
-fig.savefig(FIGDIR / "rmse_by_estimator_and_sample_size.pdf", dpi=300)
+fig.savefig(FIGDIR / "il_by_estimator_and_sample_size.pdf", dpi=300)
 
 if SHOW:
     plt.show()
@@ -261,12 +262,32 @@ for j, (ns, ax_i) in enumerate(zip(pairs, ax)):  # pairs: list of (N, n) tuples
     ax_i.set_title(f"N={N_val}, n={n_val}")
     ax_i.grid(True, axis="y", zorder=0)
 
+
 # shared labels/titles
 fig.supxlabel("Estimator")
 fig.supylabel("RMSE (total)")
 fig.suptitle("RMSE by Estimator and Sample Size")
-fig.tight_layout()
-fig.savefig("./results/figures/rmse_violinplots.pdf", dpi=300)
+
+handles = [
+    mpatches.Patch(color=color_for(est), label=generate_plot_labels(est))
+    for est in est_order
+]
+leg = fig.legend(
+    handles=handles,
+    loc="upper center",
+    ncol=len(handles),  # horizontal
+    frameon=False,
+    bbox_to_anchor=(0.5, 0.935),
+)  # ↓ tweak this number as you like
+
+# keep legend out of tight_layout's calculations, then reserve top space
+try:
+    leg.set_in_layout(False)
+except Exception:
+    pass
+
+fig.tight_layout(rect=(0.04, 0.04, 0.98, 0.88))  # leave room at top for title+legend
+fig.savefig("./results/figures/rmse_violinplots_publication.pdf", dpi=300)
 
 if SHOW:
     plt.show()
