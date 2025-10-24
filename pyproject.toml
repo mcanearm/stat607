@@ -10,3 +10,8 @@ dependencies = [
     "statsmodels>=0.14.5",
     "xarray>=2025.10.1",
 ]
+
+[project.optional-dependencies]
+testing = [
+    "pytest>=8.4.2",
+]

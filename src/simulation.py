@@ -13,6 +13,16 @@ from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparatio
 logger = logging.getLogger(__name__)
 
 
+__all__ = [
+    "run_simulation",
+    "save_simulation_output",
+    "load_simulation_output",
+    "construct_fp",
+    "true_tau",
+    "get_sim_args",
+]
+
+
 def true_tau(tau0, tau1, p=0.2):
     """
     function to compute the true variance based on the DGP parameters
@@ -54,6 +64,75 @@ def get_sim_args(func, sim_args: dict, prepend=None):
     return sim_args_complete
 
 
+def _run_simulation(
+    data_generation_fn: DatasetGenerator,
+    sbParams: dict,
+    ebParams: dict,
+    mleParams: dict,
+    **generation_kwargs,
+):
+    # get passed in dict values or initialize empty dicts
+    X, y, beta = data_generation_fn(**generation_kwargs)
+
+    if np.linalg.matrix_rank(X) != data_generation_fn.n:
+        raise np.linalg.LinAlgError("Design matrix X is rank deficient.")
+
+    mle = fit_mle(X, y)
+    parametric_eb = fit_parametricEB(mle, **ebParams)
+
+    semi_bayes_results = [
+        fit_semiBayes(mle, **{**sbParams, "tau2": ratio}) for ratio in [0.5, 1.0, 2.0]
+    ]
+
+    mle_beta, mle_cov = __get_mle_vhat(mle)
+    mle_cov = np.diagonal(mle_cov)
+
+    # check for bad values or estimates as evidence of poor convergence
+    if np.any(np.abs((mle_beta - beta)) > 1e3):
+        raise RuntimeError("MLE estimates are unreasonably large.")
+
+    pb_beta, pb_cov, _ = parametric_eb
+    sb_beta_0, sb_cov_0 = semi_bayes_results[0]
+    sb_beta_1, sb_cov_1 = semi_bayes_results[1]
+    sb_beta_2, sb_cov_2 = semi_bayes_results[2]
+
+    beta_estimates = np.stack(
+        [
+            np.stack([mle_beta, pb_beta, sb_beta_0, sb_beta_1, sb_beta_2]),
+            np.stack(
+                [
+                    np.sqrt(mle_cov),
+                    np.sqrt(np.diagonal(pb_cov)),
+                    np.sqrt(np.diagonal(sb_cov_0)),
+                    np.sqrt(np.diagonal(sb_cov_1)),
+                    np.sqrt(np.diagonal(sb_cov_2)),
+                ]
+            ),
+        ]
+    )
+
+    sim_estimates = xr.Dataset(
+        {
+            "beta_hat": (("var", "estimator", "param"), beta_estimates),
+            "true_beta": (("param",), beta),
+        },
+        coords={
+            "var": ["estimate", "std_error"],
+            "estimator": [
+                "mle",
+                "parametric_eb",
+                "semi_bayes_0.5",
+                "semi_bayes_1.0",
+                "semi_bayes_2.0",
+            ],
+            "param": [f"beta{i + 1}" for i in range(X.shape[1])],
+        },
+    )
+
+    logger.debug(f"simulation complete -- {data_generation_fn.__dict__}")
+    return sim_estimates
+
+
 def run_simulation(
     N_sim,
     data_generation_fn: DatasetGenerator,
@@ -89,75 +168,18 @@ def run_simulation(
     ebParams = get_sim_args(fit_parametricEB, ebParams or {})
     mleParams = get_sim_args(fit_mle, mleParams or {})
 
-    def _run_simulation():
-        # get passed in dict values or initialize empty dicts
-        X, y, beta = data_generation_fn(**generation_kwargs)
-
-        if np.linalg.matrix_rank(X) != data_generation_fn.n:
-            raise np.linalg.LinAlgError("Design matrix X is rank deficient.")
-
-        mle = fit_mle(X, y)
-        parametric_eb = fit_parametricEB(mle, **ebParams)
-
-        semi_bayes_results = [
-            fit_semiBayes(mle, **{**sbParams, "tau2": ratio})
-            for ratio in [0.5, 1.0, 2.0]
-        ]
-
-        mle_beta, mle_cov = __get_mle_vhat(mle)
-        mle_cov = np.diagonal(mle_cov)
-
-        # check for bad values or estimates as evidence of poor convergence
-        if np.any(np.abs((mle_beta - beta)) > 1e3):
-            raise RuntimeError("MLE estimates are unreasonably large.")
-
-        pb_beta, pb_cov, _ = parametric_eb
-        sb_beta_0, sb_cov_0 = semi_bayes_results[0]
-        sb_beta_1, sb_cov_1 = semi_bayes_results[1]
-        sb_beta_2, sb_cov_2 = semi_bayes_results[2]
-
-        beta_estimates = np.stack(
-            [
-                np.stack([mle_beta, pb_beta, sb_beta_0, sb_beta_1, sb_beta_2]),
-                np.stack(
-                    [
-                        np.sqrt(mle_cov),
-                        np.sqrt(np.diagonal(pb_cov)),
-                        np.sqrt(np.diagonal(sb_cov_0)),
-                        np.sqrt(np.diagonal(sb_cov_1)),
-                        np.sqrt(np.diagonal(sb_cov_2)),
-                    ]
-                ),
-            ]
-        )
-
-        sim_estimates = xr.Dataset(
-            {
-                "beta_hat": (("var", "estimator", "param"), beta_estimates),
-                "true_beta": (("param",), beta),
-            },
-            coords={
-                "var": ["estimate", "std_error"],
-                "estimator": [
-                    "mle",
-                    "parametric_eb",
-                    "semi_bayes_0.5",
-                    "semi_bayes_1.0",
-                    "semi_bayes_2.0",
-                ],
-                "param": [f"beta{i + 1}" for i in range(X.shape[1])],
-            },
-        )
-
-        logger.debug(f"simulation complete -- {data_generation_fn.__dict__}")
-        return sim_estimates
-
     sim_results = []
     i = 0
     while len(sim_results) < N_sim:
         i += 1
         try:
-            sim_output = _run_simulation()
+            sim_output = _run_simulation(
+                mleParams=mleParams,
+                ebParams=ebParams,
+                sbParams=sbParams,
+                data_generation_fn=data_generation_fn,
+                **generation_kwargs,
+            )
         except (
             Exception,
             ConvergenceWarning,
