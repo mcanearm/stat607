@@ -1,7 +1,7 @@
 [project]
-name = "stat607"
-version = "0.1.0"
-description = "Add your description here"
+name = "Unit 2 Simulation Project"
+version = "0.1"
+description = "Python project for Unit 2 in STAT607 at UofM."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
