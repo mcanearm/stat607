@@ -79,7 +79,7 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
     Z = np.ones((n, p))
 
     # Initialize
-    tau_tilde2 = 1e-3
+    tau_tilde2 = 1
     W_star = np.linalg.solve(V_hat + tau_tilde2 * np.eye(n), np.eye(n))
     e = beta_hat - np.zeros(n)
     for _ in range(max_iter):
