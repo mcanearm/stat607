@@ -4,6 +4,7 @@ import os
 import sys
 import warnings
 from itertools import product
+from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
@@ -55,7 +56,6 @@ def run_scenario(scenario):
             N_sim=n_sim,
             data_generation_fn=data_gen,
             N=N,
-            mleParams={"disp": False, "maxiter": 500},
         )
     save_simulation_output(results, OUTPUT_DIR)
     logger.info(
@@ -77,7 +77,9 @@ if __name__ == "__main__":
     nsim = args.nsim
     scenarios = [(*scenario, nsim) for scenario in scenarios]
 
-    # with Pool(processes=core_count) as p:
-    #     list(p.imap_unordered(run_scenario, scenarios))
-    for scenario in scenarios:
-        run_scenario(scenario)
+    if core_count > 1:
+        with Pool(processes=core_count) as p:
+            list(p.imap_unordered(run_scenario, scenarios))
+    else:
+        for scenario in scenarios:
+            run_scenario(scenario)

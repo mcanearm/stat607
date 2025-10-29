@@ -9,6 +9,7 @@ from src.dgps import DatasetGenerator
 from src.methods import fit_mle, fit_parametricEB, fit_semiBayes, __get_mle_vhat
 
 from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
+import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,8 @@ def run_simulation(
     ebParams = get_sim_args(fit_parametricEB, ebParams or {})
     mleParams = get_sim_args(fit_mle, mleParams or {})
 
+    success_rate = 0.0
+    pbar = tqdm.tqdm(total=N_sim, desc="Running Simulations", unit="sims")
     sim_results = []
     i = 0
     while len(sim_results) < N_sim:
@@ -175,6 +178,9 @@ def run_simulation(
             continue
         else:
             sim_results.append(sim_output)
+            success_rate = len(sim_results) / i
+            pbar.update(1)
+            pbar.set_postfix_str(f"Success rate: {success_rate:0.3f}")
         logger.debug(
             f"Successes {len(sim_results)}/{i} = {(len(sim_results) / i):0.3f}"
         )
@@ -182,6 +188,7 @@ def run_simulation(
     logger.info(
         f"{N_sim} simulations completed, success rate = {(len(sim_results) / i):0.3f}, data_parameters: {log_dict}"
     )
+    pbar.close()
 
     beta_hat = np.stack([res[0] for res in sim_results], axis=0)
     true_beta = np.stack([res[1] for res in sim_results], axis=0)

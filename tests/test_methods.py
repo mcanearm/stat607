@@ -54,7 +54,7 @@ def test_semi_bayes(mle_model, tau2):
     beta_star, _ = fit_semiBayes(mle_model, tau2)
 
     # assert shrinkage occurs, at least when tau2 is not TOO small
-    assert np.linalg.norm(beta_star) <= np.linalg.norm(mle_model.params)
+    assert np.linalg.norm(beta_star) <= np.linalg.norm(mle_model[0])
 
 
 def test_numerical_stability_catch():
