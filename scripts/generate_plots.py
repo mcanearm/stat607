@@ -150,7 +150,7 @@ for j, ((little_n, N_list), ax_i) in enumerate(zip(little_n_pairs.items(), ax)):
     ax_i.set_title(f"n = {little_n}", fontsize=12)
     ax_i.grid(True, axis="y")
     ax_i.yaxis.set_major_formatter(PercentFormatter(1.0))
-    ax_i.set_ylim(0.90, 1.00)  # tweak if your data needs more room
+    ax_i.set_ylim(0.80, 1.00)  # tweak if your data needs more room
 
     if j == 0:
         handles, labels = ax_i.get_legend_handles_labels()

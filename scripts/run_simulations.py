@@ -4,7 +4,6 @@ import os
 import sys
 import warnings
 from itertools import product
-from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
@@ -38,7 +37,7 @@ FILTER_WARNINGS = True
 
 
 def run_scenario(scenario):
-    n, N = scenario
+    n, N, n_sim = scenario
     rng = np.random.default_rng()
     data_gen = DatasetGenerator(
         n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rng=rng, rho=RHO
@@ -53,7 +52,7 @@ def run_scenario(scenario):
             warnings.simplefilter("ignore", ConvergenceWarning)
             warnings.simplefilter("ignore", PerfectSeparationWarning)
         results = run_simulation(
-            N_sim=8000,
+            N_sim=n_sim,
             data_generation_fn=data_gen,
             N=N,
             mleParams={"disp": False, "maxiter": 500},
@@ -72,8 +71,13 @@ if __name__ == "__main__":
         description="Run simulations for various scenarios."
     )
     parser.add_argument("--num-cores", type=int, default=1, dest="cores")
+    parser.add_argument("--nsim", type=int, default=10, dest="nsim")
     args = parser.parse_args()
     core_count = args.cores
+    nsim = args.nsim
+    scenarios = [(*scenario, nsim) for scenario in scenarios]
 
-    with Pool(processes=core_count) as p:
-        list(p.imap_unordered(run_scenario, scenarios))
+    # with Pool(processes=core_count) as p:
+    #     list(p.imap_unordered(run_scenario, scenarios))
+    for scenario in scenarios:
+        run_scenario(scenario)

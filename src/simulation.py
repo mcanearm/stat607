@@ -77,7 +77,7 @@ def _run_simulation(
     if np.linalg.matrix_rank(X) != data_generation_fn.n:
         raise np.linalg.LinAlgError("Design matrix X is rank deficient.")
 
-    mle = fit_mle(X, y)
+    mle = fit_mle(X, y, **mleParams)
     parametric_eb = fit_parametricEB(mle, **ebParams)
 
     semi_bayes_results = [
@@ -111,26 +111,8 @@ def _run_simulation(
         ]
     )
 
-    sim_estimates = xr.Dataset(
-        {
-            "beta_hat": (("var", "estimator", "param"), beta_estimates),
-            "true_beta": (("param",), beta),
-        },
-        coords={
-            "var": ["estimate", "std_error"],
-            "estimator": [
-                "mle",
-                "parametric_eb",
-                "semi_bayes_0.5",
-                "semi_bayes_1.0",
-                "semi_bayes_2.0",
-            ],
-            "param": [f"beta{i + 1}" for i in range(X.shape[1])],
-        },
-    )
-
     logger.debug(f"simulation complete -- {data_generation_fn.__dict__}")
-    return sim_estimates
+    return beta_estimates, beta
 
 
 def run_simulation(
@@ -201,13 +183,29 @@ def run_simulation(
         f"{N_sim} simulations completed, success rate = {(len(sim_results) / i):0.3f}, data_parameters: {log_dict}"
     )
 
-    sim_output = xr.concat(
-        sim_results,
-        dim="simulation",
-    )
-    sim_output = sim_output.assign_coords(simulation=np.arange(N_sim))
+    beta_hat = np.stack([res[0] for res in sim_results], axis=0)
+    true_beta = np.stack([res[1] for res in sim_results], axis=0)
 
-    sim_output.attrs = {
+    simulation_output = xr.Dataset(
+        data_vars={
+            "beta_hat": (("simulation", "var", "estimator", "param"), beta_hat),
+            "true_beta": (("simulation", "param"), true_beta),
+        },
+        coords={
+            "var": ["estimate", "std_error"],
+            "estimator": [
+                "mle",
+                "parametric_eb",
+                "semi_bayes_0.5",
+                "semi_bayes_1.0",
+                "semi_bayes_2.0",
+            ],
+            "param": [f"beta{i + 1}" for i in range(beta_hat.shape[-1])],
+            "simulation": np.arange(N_sim),
+        },
+    )
+
+    simulation_output.attrs = {
         "N": N_sim,
         **{
             **{f"sb_{k}": v for k, v in sbParams.items()},
@@ -220,7 +218,7 @@ def run_simulation(
         "successful_simulations": len(sim_results),
         "success_rate": len(sim_results) / i,
     }
-    return sim_output
+    return simulation_output
 
 
 def construct_fp(sim_results: xr.Dataset) -> Path:

@@ -25,7 +25,7 @@ def __get_mle_vhat(model):
     return beta_hat, V_hat
 
 
-def fit_mle(X, y, **fit_params):
+def fit_mle(X, y, se_threshold=np.sqrt(10), **fit_params):
     """
     Compute the MLE for logistic regression; servces as a
     baseline method for our simulations.
@@ -42,14 +42,21 @@ def fit_mle(X, y, **fit_params):
     model: statsmodels.discrete.discrete_model.BinaryResults
     """
 
-    fit_params = fit_params or {"disp": False, "maxiter": 100}
-    X = sm.add_constant(X.astype(int))
-    model = sm.Logit(y, X).fit(**fit_params)
+    try:
+        fit_params = fit_params or {"disp": False, "maxiter": 1000}
+        X = sm.add_constant(X.astype(np.float64))
+        # additional steps recommended by ChatGPT to improve convergence
+        model = sm.Logit(y, X).fit_regularized(**fit_params, alpha=0, L1_wt=0.0)
 
-    if not model.mle_retvals["converged"]:
-        raise RuntimeError("MLE fitting did not converge.")
-    else:
+        beta_hat, V_hat = __get_mle_vhat(model)
+
+        # some numeric checks
+        if np.any(np.diagonal(V_hat) >= se_threshold**2):
+            raise RuntimeError("Ill formed MLE covariance matrix")
         return model
+    except (Exception, Warning) as rw:
+        logger.error(f"Issue encountered while fitting: {rw}")
+        raise RuntimeError("MLE fitting failed due to runtime warning.") from rw
 
 
 parametricEBResults = namedtuple(
@@ -90,12 +97,12 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
 
     # Initialize
     tau_tilde2 = 1e-3
-    W_star = np.linalg.inv(V_hat + tau_tilde2 * np.eye(n))
-
+    W_star = np.linalg.solve(V_hat + tau_tilde2 * np.eye(n), np.eye(n))
     e = beta_hat - np.zeros(n)
     for _ in range(max_iter):
         # Prior mean
-        pi_star = np.linalg.inv(Z.T @ W_star @ Z) @ (Z.T @ W_star @ beta_hat)
+        A_t = np.linalg.solve(Z.T @ W_star @ Z, np.eye(p))
+        pi_star = A_t @ (Z.T @ W_star @ beta_hat)
         mu_star = Z @ pi_star
 
         # Residuals
@@ -110,10 +117,9 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
         tau_new = max(n * R / (n - p) - V_bar_star, 1e-8)  # avoid negative
 
         # Update weights
-        W_star = np.linalg.inv(V_hat + tau_new * np.eye(n))
+        W_star = np.linalg.solve(V_hat + tau_new * np.eye(n), np.eye(n))
         B_star = (n - p - 2) / (n - p) * W_star @ V_hat
         beta_star = B_star @ mu_star + (np.eye(n) - B_star) @ beta_hat
-        # B_star = tau_tilde2 * np.linalg.inv(V_hat + tau_tilde2 * np.eye(n))
 
         # Check convergence
         logger.debug(f"Iter {_}: tau^2 = {tau_new}")
@@ -125,7 +131,7 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
 
     # post convergence estimates
     # inside fit_parametricEB after convergence
-    W_star = np.linalg.inv(V_hat + tau_tilde2 * np.eye(n))
+    W_star = np.linalg.solve(V_hat + tau_tilde2 * np.eye(n), np.eye(n))
 
     # B*: use W*V with the small-sample factor
     B_star = ((n - p - 2) / (n - p)) * (W_star @ V_hat)
@@ -142,7 +148,8 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
     C_star = V_hat @ (np.eye(n) - (n - p) * B_star / n) + A
 
     # componentwise variance (eq. (12))
-    H_star = Z @ np.linalg.inv(Z.T @ W_star @ Z) @ Z.T @ W_star
+    A_t = np.linalg.solve(Z.T @ W_star @ Z, np.eye(p))
+    H_star = Z @ A_t @ Z.T @ W_star
     v_star = np.trace(W_star @ V_hat) / np.trace(W_star)  # v*
     VBs = V_hat @ B_star
     WA = W_star @ A  # *** matrix product ***
@@ -154,19 +161,10 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
     )
     np.fill_diagonal(C_star, adj_vars)
 
-    # # Covariance adjustment
-    # be = B_star @ e
-    # A = 2 * np.outer(be, be) / (n - p)
-    # C_star = V_hat @ (np.eye(n) - (n - p) * B_star / n) + A
-
-    # # Final adjustment to variances; put into the final output of C*
-    # H_star = Z @ np.linalg.inv(Z.T @ W_star @ Z) @ Z.T @ W_star
-    # adjusted_beta_vars = (
-    #     np.diagonal(V_hat)
-    #     - (1 - np.diagonal(H_star)) * (np.diagonal(V_hat @ B_star))
-    #     + (V_bar_star + tau_tilde2) * np.diagonal(W_star) * np.diagonal(A)
-    # )
-    # np.fill_diagonal(C_star, adjusted_beta_vars)
+    if np.any(np.diagonal(C_star) <= 0):
+        raise RuntimeError("Parametric EB covariance has non-positive variances.")
+    elif np.any(np.diagonal(C_star) >= 10):
+        raise RuntimeError("Ill formed Parametric EB covariance matrix")
 
     return parametricEBResults(beta_star, C_star, tau_tilde2)
 
@@ -193,16 +191,18 @@ def fit_semiBayes(model, tau2=1.0):
     p = 1
     Z = np.ones((n, 1))
 
-    W = np.linalg.inv(V_hat + tau2 * np.eye(n))
+    W = np.linalg.solve(V_hat + tau2 * np.eye(n), np.eye(n))
     B = W @ V_hat
-    pi_tilde = np.linalg.inv(Z.T @ W @ Z) @ (Z.T @ W @ beta_hat)
+
+    A_t = np.linalg.solve(Z.T @ W @ Z, np.eye(p))
+    pi_tilde = A_t @ (Z.T @ W @ beta_hat)
     mu_tilde = Z @ pi_tilde  # since Z=1
     C_tilde = V_hat @ (np.eye(n) - (n - p) * B / n)  # see ADEMP doc for A def
 
     beta_tilde = B @ mu_tilde + (np.eye(n) - B) @ beta_hat
 
     # update variances of C_tilde
-    H_tilde = Z @ np.linalg.inv(Z.T @ W @ Z) @ Z.T @ W
+    H_tilde = Z @ A_t @ Z.T @ W
     var_adjusted = np.diagonal(V_hat) - (1 - np.diagonal(H_tilde)) * np.diagonal(
         V_hat @ B
     )

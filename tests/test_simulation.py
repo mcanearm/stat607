@@ -63,7 +63,7 @@ def test_coverage_comparison():
     )
 
     sim_results = run_simulation(
-        N_sim=500,
+        N_sim=1000,
         data_generation_fn=generate_data,
         N=100,
         sbParams={"tau2": 1.0},
