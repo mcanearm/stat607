@@ -12,6 +12,10 @@ def __get_mle_vhat(model):
     """
     Extract MLE estimates and covariance from a fitted statsmodels model.
     Simple helper function to avoid boilerplate code in EB and SB methods.
+
+    Deprecated: this is leftover from utilizing statsmodels; since we are
+    using scikit-learn now, just use a model of the beta hat estimates and the
+    calculated variance directly.
     """
 
     # ignore the intercept
