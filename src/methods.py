@@ -2,6 +2,7 @@ from sklearn.linear_model import LogisticRegression
 import numpy as np
 import logging
 from collections import namedtuple
+from jax import numpy as jnp
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,8 @@ def __get_mle_vhat(model):
 
 
 def fit_mle(X, y, se_threshold=np.sqrt(10), max_iter=200):
-    X = np.c_[np.ones(len(X)), X].astype(np.float64)  # add intercept
+    X, y = jnp.array(X), jnp.array(y)
+    X = jnp.c_[jnp.ones(len(X)), X].astype(np.float64)  # add intercept
     lr = LogisticRegression(
         penalty=None, solver="lbfgs", max_iter=max_iter, fit_intercept=False
     )
@@ -34,10 +36,10 @@ def fit_mle(X, y, se_threshold=np.sqrt(10), max_iter=200):
     W = p * (1 - p)  # diag weights
     XtWX = X.T @ (W[:, None] * X)
     # Use solve instead of inv for stability
-    V = np.linalg.pinv(XtWX)  # or cho_solve on a chol factor
+    V = jnp.linalg.pinv(XtWX)  # or cho_solve on a chol factor
     beta_hat = beta[1:]
     V_hat = V[1:, 1:]
-    if np.any(np.diag(V_hat) >= se_threshold**2) or not np.isfinite(V_hat).all():
+    if jnp.any(jnp.diag(V_hat) >= se_threshold**2) or not jnp.isfinite(V_hat).all():
         raise RuntimeError("Ill-formed MLE covariance matrix")
     return mle_results(beta_hat, V_hat)
 
@@ -76,15 +78,15 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
     beta_hat, V_hat = __get_mle_vhat(model)
     n = len(beta_hat)
     p = 1  # intercept-only prior mean
-    Z = np.ones((n, p))
+    Z = jnp.ones((n, p))
 
     # Initialize
     tau_tilde2 = 1e-3
-    W_star = np.linalg.solve(V_hat + tau_tilde2 * np.eye(n), np.eye(n))
+    W_star = jnp.linalg.solve(V_hat + tau_tilde2 * np.eye(n), np.eye(n))
     e = beta_hat - np.zeros(n)
     for _ in range(max_iter):
         # Prior mean
-        A_t = np.linalg.solve(Z.T @ W_star @ Z, np.eye(p))
+        A_t = jnp.linalg.solve(Z.T @ W_star @ Z, np.eye(p))
         pi_star = A_t @ (Z.T @ W_star @ beta_hat)
         mu_star = Z @ pi_star
 
@@ -92,21 +94,21 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
         e = beta_hat - mu_star
 
         # Update R
-        R = (e.T @ W_star @ e) / np.trace(W_star)
+        R = (e.T @ W_star @ e) / jnp.trace(W_star)
 
         # Update tau^2
         # TODO: confirm V_bar_star calculation - I think it's wrong.
-        V_bar_star = np.trace(W_star @ V_hat) / np.trace(W_star)
+        V_bar_star = np.trace(W_star @ V_hat) / jnp.trace(W_star)
         tau_new = max(n * R / (n - p) - V_bar_star, 1e-8)  # avoid negative
 
         # Update weights
-        W_star = np.linalg.solve(V_hat + tau_new * np.eye(n), np.eye(n))
+        W_star = jnp.linalg.solve(V_hat + tau_new * jnp.eye(n), jnp.eye(n))
         B_star = (n - p - 2) / (n - p) * W_star @ V_hat
-        beta_star = B_star @ mu_star + (np.eye(n) - B_star) @ beta_hat
+        beta_star = B_star @ mu_star + (jnp.eye(n) - B_star) @ beta_hat
 
         # Check convergence
         logger.debug(f"Iter {_}: tau^2 = {tau_new}")
-        if np.abs(tau_new - tau_tilde2) < tol:
+        if jnp.abs(tau_new - tau_tilde2) < tol:
             tau_tilde2 = tau_new
             logger.debug(f"Converged after {_} iterations.")
             break
@@ -114,39 +116,39 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
 
     # post convergence estimates
     # inside fit_parametricEB after convergence
-    W_star = np.linalg.solve(V_hat + tau_tilde2 * np.eye(n), np.eye(n))
+    W_star = jnp.linalg.solve(V_hat + tau_tilde2 * jnp.eye(n), jnp.eye(n))
 
     # B*: use W*V with the small-sample factor
     B_star = ((n - p - 2) / (n - p)) * (W_star @ V_hat)
 
     # posterior mean
-    beta_star = B_star @ mu_star + (np.eye(n) - B_star) @ beta_hat
+    beta_star = B_star @ mu_star + (jnp.eye(n) - B_star) @ beta_hat
 
     # A term
     e = beta_hat - mu_star
     be = B_star @ e
-    A = 2 * np.outer(be, be) / (n - p)
+    A = 2 * jnp.outer(be, be) / (n - p)
 
     # base covariance (eq. (4))
-    C_star = V_hat @ (np.eye(n) - (n - p) * B_star / n) + A
+    C_star = V_hat @ (jnp.eye(n) - (n - p) * B_star / n) + A
 
     # componentwise variance (eq. (12))
-    A_t = np.linalg.solve(Z.T @ W_star @ Z, np.eye(p))
+    A_t = jnp.linalg.solve(Z.T @ W_star @ Z, jnp.eye(p))
     H_star = Z @ A_t @ Z.T @ W_star
-    v_star = np.trace(W_star @ V_hat) / np.trace(W_star)  # v*
+    v_star = jnp.trace(W_star @ V_hat) / jnp.trace(W_star)  # v*
     VBs = V_hat @ B_star
     WA = W_star @ A  # *** matrix product ***
 
     adj_vars = (
-        np.diag(V_hat)
-        - (1.0 - np.diag(H_star)) * np.diag(VBs)
-        + (v_star + tau_tilde2) * np.diag(WA)
+        jnp.diag(V_hat)
+        - (1.0 - jnp.diag(H_star)) * jnp.diag(VBs)
+        + (v_star + tau_tilde2) * jnp.diag(WA)
     )
-    np.fill_diagonal(C_star, adj_vars)
+    C_star = jnp.fill_diagonal(C_star, adj_vars, inplace=False)
 
-    if np.any(np.diagonal(C_star) <= 0):
+    if jnp.any(jnp.diagonal(C_star) <= 0):
         raise RuntimeError("Parametric EB covariance has non-positive variances.")
-    elif np.any(np.diagonal(C_star) >= 10):
+    elif jnp.any(jnp.diagonal(C_star) >= 10):
         raise RuntimeError("Ill formed Parametric EB covariance matrix")
 
     return parametricEBResults(beta_star, C_star, tau_tilde2)
@@ -172,23 +174,23 @@ def fit_semiBayes(model, tau2=1.0):
 
     n = len(beta_hat)
     p = 1
-    Z = np.ones((n, 1))
+    Z = jnp.ones((n, 1))
 
-    W = np.linalg.solve(V_hat + tau2 * np.eye(n), np.eye(n))
+    W = jnp.linalg.solve(V_hat + tau2 * jnp.eye(n), jnp.eye(n))
     B = W @ V_hat
 
-    A_t = np.linalg.solve(Z.T @ W @ Z, np.eye(p))
+    A_t = jnp.linalg.solve(Z.T @ W @ Z, jnp.eye(p))
     pi_tilde = A_t @ (Z.T @ W @ beta_hat)
     mu_tilde = Z @ pi_tilde  # since Z=1
-    C_tilde = V_hat @ (np.eye(n) - (n - p) * B / n)  # see ADEMP doc for A def
+    C_tilde = V_hat @ (jnp.eye(n) - (n - p) * B / n)  # see ADEMP doc for A def
 
-    beta_tilde = B @ mu_tilde + (np.eye(n) - B) @ beta_hat
+    beta_tilde = B @ mu_tilde + (jnp.eye(n) - B) @ beta_hat
 
     # update variances of C_tilde
     H_tilde = Z @ A_t @ Z.T @ W
-    var_adjusted = np.diagonal(V_hat) - (1 - np.diagonal(H_tilde)) * np.diagonal(
+    var_adjusted = jnp.diagonal(V_hat) - (1 - jnp.diagonal(H_tilde)) * jnp.diagonal(
         V_hat @ B
     )
-    np.fill_diagonal(C_tilde, var_adjusted)
+    C_tilde = jnp.fill_diagonal(C_tilde, var_adjusted, inplace=False)
 
     return semiBayesResults(beta_tilde, C_tilde)

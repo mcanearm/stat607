@@ -4,6 +4,7 @@ import numpy as np
 import inspect
 from pathlib import Path
 
+
 import pickle as pkl
 from src.dgps import DatasetGenerator
 from src.methods import fit_mle, fit_parametricEB, fit_semiBayes, __get_mle_vhat
