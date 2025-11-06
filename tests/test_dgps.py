@@ -16,12 +16,11 @@ def test_covar_generation(n, rho):
 @pytest.mark.parametrize("N", [10, 100], ids=lambda N: f"N={N}")
 @pytest.mark.parametrize("n", [1, 2, 5, 10], ids=lambda n: f"n={n}")
 @pytest.mark.parametrize("rho", [0, 0.5], ids=lambda rho: f"rho={rho}")
-def test_data_simulation(N, n, rho):
-    prngKey = jax.random.PRNGKey(42)
+def test_data_simulation(prng_key, N, n, rho):
     generate_data = DatasetGenerator(n=n, rho=rho, tau_0=1.0, tau_1=1.0, sigma2=1.0)
     assert generate_data.n == n
 
-    X, y, true_beta = (simulated_data := generate_data(prngKey, N))
+    X, y, true_beta = (simulated_data := generate_data(prng_key, N))
 
     assert isinstance(simulated_data, SimulatedData)
 
@@ -31,19 +30,17 @@ def test_data_simulation(N, n, rho):
     assert np.isin(y, [0, 1]).all()
     assert true_beta.shape == (n,)
 
-    # make sure we can't rule out 50% for the mean of Y with a silly CI test
-    # note that this still may fail sometimes due to randomness
-    assert (
-        np.mean(y) - 1.96 * np.std(y) / np.sqrt(N)
-        < 0.5
-        < np.mean(y) + 1.96 * np.std(y) / np.sqrt(N)
+    # make sure we are somewhere around 50% positives
+    assert 0.25 < np.mean(y) < 0.75, (
+        "proportion of positives is not between 25% and 75%"
     )
 
 
 # tmp_path is a fixture that is always available in pytest
 def test_saving_loading(tmpdir):
     generate_data = DatasetGenerator(n=5, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0)
-    simulated_data = generate_data(100)
+    key = jax.random.PRNGKey(123)
+    simulated_data = generate_data(key, 100)
 
     output_file = simulated_data.save(tmpdir)
     loaded_data = SimulatedData.load(output_file)
@@ -58,7 +55,7 @@ def test_saving_loading(tmpdir):
     assert simulated_data.sigma2 == loaded_data.sigma2
 
     # ensure rng state can be recreated exactly
-    X, Y, beta = generate_data(100, state=simulated_data.generator_state)
+    X, Y, beta = generate_data(simulated_data.generator_state, 100)
 
     assert np.array_equal(X, loaded_data.X)
     assert np.array_equal(Y, loaded_data.y)

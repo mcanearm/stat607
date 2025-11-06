@@ -3,11 +3,12 @@ import pytest
 
 from src.methods import fit_mle, fit_parametricEB, fit_semiBayes, __get_mle_vhat
 from src.dgps import DatasetGenerator
+import jax
 
 
 @pytest.fixture
-def generated_data(generate_data):
-    return generate_data(100)
+def generated_data(prng_key, generate_data):
+    return generate_data(prng_key, 100)
 
 
 @pytest.fixture
@@ -57,11 +58,12 @@ def test_semi_bayes(mle_model, tau2):
     assert np.linalg.norm(beta_star) <= np.linalg.norm(mle_model[0])
 
 
-def test_numerical_stability_catch():
+def test_numerical_stability_catch(prng_key):
     generate_data = DatasetGenerator(n=10, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0)
     with pytest.raises(RuntimeError):
         for _ in range(1000):
+            _, key = jax.random.split(prng_key)
             N = 40
-            X, y, true_beta = generate_data(N)
+            X, y, true_beta = generate_data(key, N)
             mle_model = fit_mle(X, y)
             assert mle_model

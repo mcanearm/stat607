@@ -36,33 +36,33 @@ def _generate_design_matrix(prngKey, N, true_beta, sigma2, cov_mat=None):
     y | X. Finally, the alpha intercept is chosen to center the logits
     and ensure that roughly 50% of the responses are 1s.
     """
-    logger.debug(f"Using RNG: {prngKey}")
+
+    k1, k2, k3, k4 = jax.random.split(prngKey, 4)
+    # jax.debug.print(f"keys: {prngArray}")
     if cov_mat is None:
         cov_mat = jnp.eye(len(true_beta))
 
     Z = jax.random.multivariate_normal(
-        prngKey,
+        k1,
         mean=jnp.zeros(cov_mat.shape[0]),
         cov=cov_mat,
         shape=(N,),
         method="cholesky",
     )
-    c_j = jax.random.uniform(
-        prngKey, minval=-0.25, maxval=0.25, shape=(cov_mat.shape[0],)
-    )
-    jax.debug.print(f"c_j values: {c_j}")
+    c_j = jax.random.uniform(k2, minval=-0.25, maxval=0.25, shape=(cov_mat.shape[0],))
+    # jax.debug.print(f"c_j values: {c_j}")
 
-    eps_k = sigma2 * jax.random.normal(prngKey, shape=(N,))
+    eps_k = sigma2 * jax.random.normal(k3, shape=(N,))
     X = Z > c_j
 
     # add intercept that centers the logits
     alpha = -jnp.mean(X @ true_beta + eps_k)
-    jax.debug.print(f"Alpha (intercept) value: {alpha}")
+    # jax.debug.print(f"Alpha (intercept) value: {alpha}")
 
     logits = alpha + X @ true_beta + eps_k
     p_i = sigmoid(logits)
-    y = jax.random.binomial(prngKey, 1, p_i)
-    jax.debug.print(f"{jnp.sum(y)}/{N} positive responses {jnp.mean(y)}.")
+    y = jax.random.binomial(k4, 1, p_i)
+    # jax.debug.print(f"{jnp.sum(y)}/{N} positive responses {jnp.mean(y)}.")
 
     return X, y
 
@@ -73,12 +73,46 @@ def _generate_beta(prngKey, tau_0, tau_1, n):
     the beta draws are independent, despite us assuming correlation
     when estimated a parameter shrinkage term.
     """
-    z_i = jax.random.bernoulli(prngKey, p=0.2, shape=(n,))
-    pi_i = tau_1 * jax.random.exponential(prngKey, shape=(n,))
+    k1, k2, k3 = jax.random.split(prngKey, 3)
+    z_i = jax.random.bernoulli(k1, p=0.2, shape=(n,))
+    pi_i = tau_1 * jax.random.exponential(k2, shape=(n,))
 
-    delta_i = tau_0 * jax.random.normal(prngKey, shape=(n,))
+    delta_i = tau_0 * jax.random.normal(k3, shape=(n,))
     beta = z_i * pi_i + delta_i
     return beta
+
+
+# @jax.jit
+def _subcall(
+    prngKey, N=100, batches=1, sigma2=1.0, tau_0=1.0, tau_1=1.0, n=5, cov_mat=None
+) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    all_keys = jax.random.split(prngKey, batches + 1)
+    new_key, keys = all_keys[0], all_keys[1:]
+    if cov_mat is None:
+        cov_mat = jnp.eye(n)
+    true_beta = jax.vmap(_generate_beta, in_axes=(0, None, None, None))(
+        keys, tau_0, tau_1, n
+    )
+
+    all_keys = jax.random.split(new_key, batches + 1)
+    new_key, keys = all_keys[0], all_keys[1:]
+    X, y = jax.vmap(_generate_design_matrix, in_axes=(0, None, 0, None, None))(
+        keys,
+        N,
+        true_beta,
+        sigma2,
+        cov_mat,
+    )
+    if batches == 1:
+        X = X[0]
+        y = y[0]
+        true_beta = true_beta[0]
+        generator_state = prngKey
+
+    return X, y, true_beta, generator_state
+
+
+_subcall = jax.jit(_subcall, static_argnames=("batches", "n", "N"))
 
 
 @dataclass
@@ -226,20 +260,16 @@ class DatasetGenerator(object):
         self.cov_mat = create_covariance_matrix(n, rho)
 
     def __call__(self, prngKey, N=100, batches=1) -> SimulatedData:
-        generator_state = jax.random.split(prngKey, batches)
-        true_beta = jax.vmap(
-            _generate_beta, in_axes=(0, None, None, None), out_axes=-1
-        )(generator_state, self.tau_0, self.tau_1, self.n)
-        X, y = jax.vmap(
-            _generate_design_matrix, in_axes=(0, None, 1, None, None), out_axes=-1
-        )(
-            generator_state,
-            N,
-            true_beta,
-            self.sigma2,
-            self.cov_mat,
+        X, y, true_beta, generator_state = _subcall(
+            prngKey=prngKey,
+            N=N,
+            batches=batches,
+            sigma2=self.sigma2,
+            tau_0=self.tau_0,
+            tau_1=self.tau_1,
+            n=self.n,
+            cov_mat=self.cov_mat,
         )
-        X, y, true_beta = X.squeeze(-1), y.squeeze(-1), true_beta.squeeze(-1)
         return SimulatedData(
             X,
             y,

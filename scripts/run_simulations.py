@@ -6,8 +6,8 @@ import warnings
 from itertools import product
 from multiprocessing import Pool
 from pathlib import Path
+import jax
 
-import numpy as np
 from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
 
 from src.dgps import DatasetGenerator
@@ -38,11 +38,8 @@ FILTER_WARNINGS = True
 
 
 def run_scenario(scenario):
-    n, N, n_sim = scenario
-    rng = np.random.default_rng()
-    data_gen = DatasetGenerator(
-        n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rng=rng, rho=RHO
-    )
+    key, n, N, n_sim = scenario
+    data_gen = DatasetGenerator(n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rho=RHO)
     scenario_msg = f"n={n}, N={N}, true_tau={TRUE_TAU:0.3f}"
 
     logger.info(f"Running scenario: n={n}, N={N}, true_tau={TAU_0:0.3f}")
@@ -53,6 +50,7 @@ def run_scenario(scenario):
             warnings.simplefilter("ignore", ConvergenceWarning)
             warnings.simplefilter("ignore", PerfectSeparationWarning)
         results = run_simulation(
+            key,
             N_sim=n_sim,
             data_generation_fn=data_gen,
             N=N,
@@ -75,7 +73,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     core_count = args.cores
     nsim = args.nsim
-    scenarios = [(*scenario, nsim) for scenario in scenarios]
+    keys = jax.random.split(jax.random.PRNGKey(12345), len(scenarios))
+    scenarios = [(key, *scenario, nsim) for key, scenario in zip(keys, scenarios)]
 
     if core_count > 1:
         with Pool(processes=core_count) as p:

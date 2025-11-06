@@ -10,9 +10,10 @@ from src.analysis import (
 )
 
 
-@pytest.fixture
-def sample_output(generate_data):
+@pytest.fixture(scope="module")
+def sample_output(prng_key, generate_data):
     results = run_simulation(
+        prng_key,
         N_sim=100,
         data_generation_fn=generate_data,
         N=100,

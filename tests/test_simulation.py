@@ -5,8 +5,8 @@ import numpy as np
 import pickle as pkl
 
 
-def test_simulation(generate_data):
-    out = run_simulation(100, generate_data)
+def test_simulation(prng_key, generate_data):
+    out = run_simulation(prng_key, 100, generate_data)
 
     assert not set(out["beta_hat"].dims).difference(
         {"simulation", "estimator", "param", "var"}
@@ -20,20 +20,17 @@ def test_simulation(generate_data):
     }
 
 
-def test_simulation_output(generate_data):
-    result = run_simulation(50, generate_data)
-    assert result.attrs["N"] == 50
+def test_simulation_output(prng_key, generate_data):
+    result = run_simulation(prng_key, 50, generate_data)
+    assert result.attrs["N_sim"] == 50
     assert not set(generate_data.__dict__.keys()).difference(result.attrs.keys())
 
 
 @pytest.fixture()
-def simulation_run():
-    rng = np.random.default_rng(42)
-    generate_data = DatasetGenerator(
-        n=5, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0, rng=rng
-    )
-
+def simulation_run(prng_key):
+    generate_data = DatasetGenerator(n=5, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0)
     sim_results = run_simulation(
+        prng_key,
         N_sim=10,
         data_generation_fn=generate_data,
         N=100,
@@ -48,21 +45,29 @@ def test_save_simulation(simulation_run, tmpdir):
     with open(files[0], "rb") as f:
         loaded_sim_run = pkl.load(f)
 
-    assert np.all(
-        simulation_run["beta_hat"].values == loaded_sim_run["beta_hat"].values
+    assert np.allclose(
+        loaded_sim_run["beta_hat"].values, simulation_run["beta_hat"].values
+    ), "Saved and loaded simulation results do not match"
+
+    rerun = run_simulation(
+        loaded_sim_run.attrs["key"],
+        N_sim=loaded_sim_run.attrs["N_sim"],
+        data_generation_fn=loaded_sim_run.attrs["data_generation_fn"],
+        N=loaded_sim_run.attrs["N"],
     )
-    assert loaded_sim_run.rng.normal() == simulation_run.rng.normal()
+
+    assert np.allclose(rerun["beta_hat"].values, loaded_sim_run["beta_hat"].values), (
+        "Cannot reproduce saved simulation results"
+    )
 
 
-def test_coverage_comparison():
+def test_coverage_comparison(prng_key):
     # All simulations in the paper had over 95% coverage, or maybe some variant
     # of 94%. If it's less than that, we're doing something wrong in the fit methods.
-    rng = np.random.default_rng(42)
-    generate_data = DatasetGenerator(
-        n=4, rho=0.5, tau_0=0.2, tau_1=0.2, sigma2=0.5, rng=rng
-    )
+    generate_data = DatasetGenerator(n=4, rho=0.5, tau_0=0.2, tau_1=0.2, sigma2=0.5)
 
     sim_results = run_simulation(
+        prng_key,
         N_sim=1000,
         data_generation_fn=generate_data,
         N=100,

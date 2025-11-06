@@ -3,6 +3,7 @@ import xarray as xr
 import numpy as np
 import inspect
 from pathlib import Path
+import jax
 
 
 import pickle as pkl
@@ -67,6 +68,7 @@ def get_sim_args(func, sim_args: dict, prepend=None):
 
 
 def _run_simulation(
+    key,
     data_generation_fn: DatasetGenerator,
     sbParams: dict,
     ebParams: dict,
@@ -74,7 +76,7 @@ def _run_simulation(
     **generation_kwargs,
 ):
     # get passed in dict values or initialize empty dicts
-    X, y, beta = data_generation_fn(**generation_kwargs)
+    X, y, beta = data_generation_fn(key, **generation_kwargs)
 
     if np.linalg.matrix_rank(X) != data_generation_fn.n:
         raise np.linalg.LinAlgError("Design matrix X is rank deficient.")
@@ -118,6 +120,7 @@ def _run_simulation(
 
 
 def run_simulation(
+    key,
     N_sim,
     data_generation_fn: DatasetGenerator,
     sbParams=None,
@@ -156,10 +159,13 @@ def run_simulation(
     pbar = tqdm.tqdm(total=N_sim, desc="Running Simulations", unit="sims")
     sim_results = []
     i = 0
+    initial_key = key
     while len(sim_results) < N_sim:
         i += 1
+        _, key = jax.random.split(key)
         try:
             sim_output = _run_simulation(
+                key,
                 mleParams=mleParams,
                 ebParams=ebParams,
                 sbParams=sbParams,
@@ -214,7 +220,7 @@ def run_simulation(
     )
 
     simulation_output.attrs = {
-        "N": N_sim,
+        "N_sim": N_sim,
         **{
             **{f"sb_{k}": v for k, v in sbParams.items()},
             "prior_tau_ratio": [0.5, 1.0, 2.0],
@@ -222,6 +228,8 @@ def run_simulation(
         **{f"eb_{k}": v for k, v in ebParams.items()},
         **generation_kwargs,
         **data_generation_fn.__dict__,
+        "data_generation_fn": data_generation_fn,
+        "key": initial_key,
         "total_attempts": i,
         "successful_simulations": len(sim_results),
         "success_rate": len(sim_results) / i,
