@@ -112,7 +112,14 @@ def _run_simulation(
         ]
     )
 
-    logger.debug(f"simulation complete -- {data_generation_fn.__dict__}")
+    logger.debug(
+        "sim complete — n=%d rho=%.3f tau0=%.3f tau1=%.3f sigma2=%.3f",
+        data_generation_fn.n,
+        data_generation_fn.rho,
+        data_generation_fn.tau_0,
+        data_generation_fn.tau_1,
+        data_generation_fn.sigma2,
+    )
     return beta_estimates, beta
 
 
@@ -184,9 +191,8 @@ def run_simulation(
         logger.debug(
             f"Successes {len(sim_results)}/{i} = {(len(sim_results) / i):0.3f}"
         )
-    log_dict = {k: v for k, v in data_generation_fn.__dict__.items() if k != "cov_mat"}
     logger.info(
-        f"{N_sim} simulations completed, success rate = {(len(sim_results) / i):0.3f}, data_parameters: {log_dict}"
+        f"{N_sim} simulations completed, success rate = {(len(sim_results) / i):0.3f}"
     )
     pbar.close()
 

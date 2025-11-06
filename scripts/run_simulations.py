@@ -27,7 +27,7 @@ scenarios2 = product([20], [100, 500, 2000])  # n, N, true_tau
 scenarios = list(scenarios1) + list(scenarios2)
 
 
-loglevel = os.environ.get("LOGLEVEL", "INFO")
+loglevel = os.environ.get("LOGLEVEL", "ERROR")
 logging.basicConfig(level=loglevel)
 logger = logging.getLogger(__name__)
 
