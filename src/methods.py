@@ -1,8 +1,9 @@
-from sklearn.linear_model import LogisticRegression
 import numpy as np
 import logging
 from collections import namedtuple
 from jax import numpy as jnp
+import jax
+import jax.lax as lax
 
 logger = logging.getLogger(__name__)
 
@@ -23,25 +24,83 @@ def __get_mle_vhat(model):
     return model
 
 
-def fit_mle(X, y, se_threshold=np.sqrt(10), max_iter=200):
-    X, y = jnp.array(X), jnp.array(y)
-    X = jnp.c_[jnp.ones(len(X)), X].astype(np.float64)  # add intercept
-    lr = LogisticRegression(
-        penalty=None, solver="lbfgs", max_iter=max_iter, fit_intercept=False
+def _add_intercept(X):
+    X = jnp.asarray(X, dtype=jnp.float64)
+    return jnp.concatenate([jnp.ones((X.shape[0], 1), X.dtype), X], axis=1)
+
+
+@jax.jit
+def fit_mle(
+    X,
+    y,
+    se_threshold=jnp.sqrt(10.0),
+    max_iter: int = 100,
+    tol: float = 1e-6,
+    ridge_eps: float = 1e-8,  # tiny damping for numerical stability
+):
+    """
+    ChatGPT Generated JAX implementation of binary logistic regression
+    Logistic regression MLE via IRLS/Newton:
+      beta_{t+1} = beta_t + (X^T W X + eps I)^{-1} X^T (y - p_t)
+    Covariance uses the observed info inverse at the solution.
+    Returns mle_results(beta_hat (p,), V_hat (p,p)) with intercept removed.
+    """
+    X = _add_intercept(X)
+    y = jnp.asarray(y, dtype=jnp.float64).reshape((-1,))
+    n, p_tot = X.shape
+
+    def step(beta):
+        eta = X @ beta
+        p = jax.nn.sigmoid(eta)
+        w = p * (1.0 - p)  # shape (n,)
+        XtWX = X.T @ (w[:, None] * X)  # (p_tot, p_tot)
+        g = X.T @ (y - p)  # score
+        H = XtWX + ridge_eps * jnp.eye(p_tot)  # damped Hessian (PD)
+        # Newton/IRLS increment
+        delta = jnp.linalg.solve(H, g)
+        return beta + delta, delta, H
+
+    # while-loop state: (it, beta, step_norm, H_last)
+    beta0 = jnp.zeros((p_tot,), dtype=X.dtype)
+    it0 = jnp.array(0, dtype=jnp.int32)
+    step_norm0 = jnp.array(jnp.inf, dtype=X.dtype)
+    H_init = jnp.eye(p_tot, dtype=X.dtype)
+
+    def cond_fun(state):
+        it, beta, step_norm, _H = state
+        return jnp.logical_and(it < max_iter, step_norm > tol)
+
+    def body_fun(state):
+        it, beta, _step_norm, _H = state
+        beta_new, delta, H_new = step(beta)
+        step_norm = jnp.linalg.norm(delta, ord=jnp.inf)
+        return (it + 1, beta_new, step_norm, H_new)
+
+    it_f, beta_f, _step_norm_f, H_f = lax.while_loop(
+        cond_fun, body_fun, (it0, beta0, step_norm0, H_init)
     )
-    lr.fit(X, y)
-    beta = lr.coef_.ravel()  # includes intercept
-    eta = X @ beta
-    p = 1.0 / (1.0 + np.exp(-eta))
-    W = p * (1 - p)  # diag weights
-    XtWX = X.T @ (W[:, None] * X)
-    # Use solve instead of inv for stability
-    V = jnp.linalg.pinv(XtWX)  # or cho_solve on a chol factor
-    beta_hat = beta[1:]
-    V_hat = V[1:, 1:]
-    if jnp.any(jnp.diag(V_hat) >= se_threshold**2) or not jnp.isfinite(V_hat).all():
-        raise RuntimeError("Ill-formed MLE covariance matrix")
-    return mle_results(beta_hat, V_hat)
+
+    # Observed-info covariance at the solution (use undamped XtWX if you prefer)
+    eta_f = X @ beta_f
+    p_f = jax.nn.sigmoid(eta_f)
+    w_f = p_f * (1.0 - p_f)
+    XtWX_f = X.T @ (w_f[:, None] * X)
+    # pinv guards against borderline designs
+    V_full = jnp.linalg.pinv(XtWX_f + ridge_eps * jnp.eye(p_tot))
+
+    # strip intercept
+    beta_hat = beta_f[1:]
+    V_hat = V_full[1:, 1:]
+
+    # simple guardrail: treat “wild” fits as invalid (stay pure: no raise)
+    bad = jnp.logical_or(
+        jnp.any(jnp.diag(V_hat) >= se_threshold**2),
+        jnp.logical_not(jnp.isfinite(V_hat).all()),
+    )
+    beta_hat = jnp.where(bad, jnp.nan, beta_hat)
+    V_hat = jnp.where(bad, jnp.nan, V_hat)
+
+    return mle_results(beta_hat=beta_hat, V_hat=V_hat)
 
 
 parametricEBResults = namedtuple(

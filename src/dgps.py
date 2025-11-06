@@ -82,7 +82,7 @@ def _generate_beta(prngKey, tau_0, tau_1, n):
     return beta
 
 
-# @jax.jit
+@jax.jit
 def _subcall(
     prngKey, N=100, batches=1, sigma2=1.0, tau_0=1.0, tau_1=1.0, n=5, cov_mat=None
 ) -> tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
