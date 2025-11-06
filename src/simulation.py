@@ -3,12 +3,13 @@ import xarray as xr
 import numpy as np
 import inspect
 from pathlib import Path
+import os
 
 import pickle as pkl
 from src.dgps import DatasetGenerator
 from src.methods import fit_mle, fit_parametricEB, fit_semiBayes, __get_mle_vhat
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
 import tqdm
 
 logger = logging.getLogger(__name__)
@@ -123,79 +124,117 @@ def _run_simulation(
     return beta_estimates, beta
 
 
+def _simulate_once_worker(args):
+    _mleParams, _ebParams, _sbParams, _data_generation_fn, _generation_kwargs = args
+    try:
+        return True, _run_simulation(
+            mleParams=_mleParams,
+            ebParams=_ebParams,
+            sbParams=_sbParams,
+            data_generation_fn=_data_generation_fn,
+            **_generation_kwargs,
+        )
+    except Exception:
+        # swallow failures; return a flag only
+        return False, None
+
+
 def run_simulation(
     N_sim,
     data_generation_fn: DatasetGenerator,
     sbParams=None,
     ebParams=None,
     mleParams=None,
+    parallel: bool = False,
+    max_workers: int | None = None,
     **generation_kwargs,
 ):
     """
     Run a simulation scenario comparing MLE, Parametric EB, and Semi-Bayes methods.
-    Parameters
-    ----------
-    N_sim : int
-        Number of simulation replications.
-    data_generation_fn : function
-        Data generation function that returns X, y, beta_true. Since each simulation needs its own
-        dataset, this should be a callable that generates a new dataset each time it is called.
-    sbParams : dict, optional
-        Parameters to pass to fit_semiBayes.
-    ebParams : dict, optional
-        Parameters to pass to fit_parametricEB.
-    mleParams : dict, optional
-        Parameters to pass to fit_mle.
-    **generation_kwargs : dict
-        Additional keyword arguments to pass to data_generation_fn.
-    Returns
-    -------
-    sim_output : xarray.Dataset
-        Dataset containing simulation results.
+    Set parallel=True to collect N_sim successes using a rolling process pool.
     """
-    # get default from fitting functions if this is an empty dict
+    # defaults from fitting functions
     sbParams = get_sim_args(fit_semiBayes, sbParams or {})
     ebParams = get_sim_args(fit_parametricEB, ebParams or {})
     mleParams = get_sim_args(fit_mle, mleParams or {})
 
-    success_rate = 0.0
     pbar = tqdm.tqdm(total=N_sim, desc="Running Simulations", unit="sims")
     sim_results = []
-    i = 0
-    while len(sim_results) < N_sim:
-        i += 1
-        try:
-            sim_output = _run_simulation(
-                mleParams=mleParams,
-                ebParams=ebParams,
-                sbParams=sbParams,
-                data_generation_fn=data_generation_fn,
-                **generation_kwargs,
-            )
-        except (
-            Exception,
-            ConvergenceWarning,
-            PerfectSeparationWarning,
-            RuntimeWarning,
-        ) as e:
-            # catch all reasonable MLE exceptions and discard the simulation run on those
-            logger.debug(
-                f"Simulation iteration {i} failed: {e} -- success_rate = {(len(sim_results) / i):0.3f}"
-            )
-            continue
-        else:
-            sim_results.append(sim_output)
-            success_rate = len(sim_results) / i
-            pbar.update(1)
-            pbar.set_postfix_str(f"Success rate: {success_rate:0.3f}")
-        logger.debug(
-            f"Successes {len(sim_results)}/{i} = {(len(sim_results) / i):0.3f}"
-        )
-    logger.info(
-        f"{N_sim} simulations completed, success rate = {(len(sim_results) / i):0.3f}"
-    )
-    pbar.close()
+    attempts = 0
 
+    if not parallel:
+        # ------------ original, sequential ------------
+        while len(sim_results) < N_sim:
+            attempts += 1
+            try:
+                sim_output = _run_simulation(
+                    mleParams=mleParams,
+                    ebParams=ebParams,
+                    sbParams=sbParams,
+                    data_generation_fn=data_generation_fn,
+                    **generation_kwargs,
+                )
+            except Exception as e:
+                logger.debug(
+                    "Iteration %d failed: %s -- success_rate=%.3f",
+                    attempts,
+                    str(e),
+                    len(sim_results) / attempts,
+                )
+                continue
+
+            sim_results.append(sim_output)
+            pbar.update(1)
+            pbar.set_postfix_str(
+                f"Success %: {len(sim_results) / attempts:0.3f}, n: {data_generation_fn.n}, N: {generation_kwargs.get('N', 'NA')}"
+            )
+
+        pbar.close()
+
+    else:
+        # ------------ lightweight parallel version ------------
+        max_workers = max_workers or (os.cpu_count() or 4)
+        inflight = max_workers * 3  # small buffer keeps the pool busy
+
+        # prebuild the args tuple once (picklable)
+        base_args = (
+            mleParams,
+            ebParams,
+            sbParams,
+            data_generation_fn,
+            generation_kwargs,
+        )
+
+        with ProcessPoolExecutor(max_workers=max_workers) as ex:
+            futures = set()
+            # prime the pump
+            while len(futures) < inflight:
+                futures.add(ex.submit(_simulate_once_worker, base_args))
+                attempts += 1
+
+            while len(sim_results) < N_sim:
+                # harvest one finished task, submit a replacement
+                done = next(as_completed(futures))
+                futures.remove(done)
+                ok, payload = done.result()
+                if ok:
+                    sim_results.append(payload)
+                    pbar.update(1)
+                pbar.set_postfix_str(
+                    f"Success %: {len(sim_results) / attempts:0.3f}, n: {data_generation_fn.n}, N: {generation_kwargs.get('N', 'NA')}"
+                )
+
+                # keep the pipeline full
+                futures.add(ex.submit(_simulate_once_worker, base_args))
+                attempts += 1
+
+            # optional: cancel leftover tasks
+            for f in futures:
+                f.cancel()
+
+        pbar.close()
+
+    # ---------- pack results ----------
     beta_hat = np.stack([res[0] for res in sim_results], axis=0)
     true_beta = np.stack([res[1] for res in sim_results], axis=0)
 
@@ -226,10 +265,10 @@ def run_simulation(
         },
         **{f"eb_{k}": v for k, v in ebParams.items()},
         **generation_kwargs,
-        **data_generation_fn.__dict__,
-        "total_attempts": i,
+        **{k: v for k, v in data_generation_fn.__dict__.items() if k != "cov_mat"},
+        "total_attempts": attempts,
         "successful_simulations": len(sim_results),
-        "success_rate": len(sim_results) / i,
+        "success_rate": len(sim_results) / attempts,
     }
     return simulation_output
 

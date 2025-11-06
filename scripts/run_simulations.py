@@ -4,7 +4,6 @@ import os
 import sys
 import warnings
 from itertools import product
-from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
@@ -38,7 +37,7 @@ FILTER_WARNINGS = True
 
 
 def run_scenario(scenario):
-    n, N, n_sim = scenario
+    core_count, n, N, n_sim = scenario
     rng = np.random.default_rng()
     data_gen = DatasetGenerator(
         n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rng=rng, rho=RHO
@@ -56,6 +55,8 @@ def run_scenario(scenario):
             N_sim=n_sim,
             data_generation_fn=data_gen,
             N=N,
+            parallel=True if core_count > 1 else False,
+            max_workers=core_count,
         )
     save_simulation_output(results, OUTPUT_DIR)
     logger.info(
@@ -75,11 +76,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     core_count = args.cores
     nsim = args.nsim
-    scenarios = [(*scenario, nsim) for scenario in scenarios]
+    scenarios = [(core_count, *scenario, nsim) for scenario in scenarios]
 
-    if core_count > 1:
-        with Pool(processes=core_count) as p:
-            list(p.imap_unordered(run_scenario, scenarios))
-    else:
-        for scenario in scenarios:
-            run_scenario(scenario)
+    for scenario in scenarios:
+        run_scenario(scenario)
