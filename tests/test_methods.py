@@ -58,7 +58,9 @@ def test_semi_bayes(mle_model, tau2):
 
 
 def test_numerical_stability_catch():
-    generate_data = DatasetGenerator(n=10, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0)
+    generate_data = DatasetGenerator(
+        n=10, rho=0.0, tau_0=1.0, tau_1=1.0, sigma2=1.0, rng=np.random.default_rng(42)
+    )
     with pytest.raises(RuntimeError):
         for _ in range(1000):
             N = 40

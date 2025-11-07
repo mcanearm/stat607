@@ -37,11 +37,8 @@ FILTER_WARNINGS = True
 
 
 def run_scenario(scenario):
-    core_count, n, N, n_sim = scenario
-    rng = np.random.default_rng()
-    data_gen = DatasetGenerator(
-        n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rng=rng, rho=RHO
-    )
+    seed, core_count, n, N, n_sim = scenario
+    data_gen = DatasetGenerator(n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rho=RHO)
     scenario_msg = f"n={n}, N={N}, true_tau={TRUE_TAU:0.3f}"
 
     logger.info(f"Running scenario: n={n}, N={N}, true_tau={TAU_0:0.3f}")
@@ -57,6 +54,7 @@ def run_scenario(scenario):
             N=N,
             parallel=True if core_count > 1 else False,
             max_workers=core_count,
+            rng=np.random.default_rng(seed),
         )
     save_simulation_output(results, OUTPUT_DIR)
     logger.info(
@@ -73,10 +71,12 @@ if __name__ == "__main__":
     )
     parser.add_argument("--num-cores", type=int, default=1, dest="cores")
     parser.add_argument("--nsim", type=int, default=10, dest="nsim")
+    parser.add_argument("--seed", type=int, default=20250607, dest="seed")
     args = parser.parse_args()
     core_count = args.cores
     nsim = args.nsim
-    scenarios = [(core_count, *scenario, nsim) for scenario in scenarios]
+    seed = args.seed
+    scenarios = [(seed, core_count, *scenario, nsim) for scenario in scenarios]
 
     for scenario in scenarios:
         run_scenario(scenario)

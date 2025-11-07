@@ -48,8 +48,8 @@ class SimulatedData(object):
         See DatasetGenerator.
     sigma2 : float
         See DatasetGenerator.
-    rng : np.random.Generator
-        Random number generator used for reproducibility.
+    generatorState : Mapping
+        The state of the random number generator used to create the data.
     """
 
     X: np.ndarray
@@ -60,7 +60,6 @@ class SimulatedData(object):
     tau_0: float
     tau_1: float
     sigma2: float
-    rng: np.random.Generator
     generator_state: Mapping
 
     def __post_init__(self):
@@ -163,22 +162,22 @@ class DatasetGenerator(object):
         rng : np.random.Generator
             Random number generator used for reproducibility.
         """
-        if rng is None:
-            rng = np.random.default_rng(rng)
         self.n = n
         self.rho = rho
         self.tau_0 = tau_0
         self.tau_1 = tau_1
         self.sigma2 = sigma2
-        self.rng = rng
         self.cov_mat = create_covariance_matrix(n, rho)
+        self.rng = np.random.default_rng() if rng is None else rng
 
-    def __call__(self, N=100, state: Union[Mapping, None] = None) -> SimulatedData:
-        if state is not None:
-            self.rng.bit_generator.state = state
-        generator_state = self.rng.bit_generator.state
-        true_beta = self.generate_beta()
-        X, y = self.generate_design_matrix(N, true_beta)
+    def __call__(self, N=100, rng=None) -> SimulatedData:
+        if rng is None:
+            rng = self.rng
+        generator_state = rng.bit_generator.state
+        true_beta = self.generate_beta(rng=rng)
+        X, y = self.generate_design_matrix(N, true_beta, rng=rng)
+
+        # return rng to state used to create the data
         return SimulatedData(
             X,
             y,
@@ -188,11 +187,10 @@ class DatasetGenerator(object):
             self.tau_0,
             self.tau_1,
             self.sigma2,
-            self.rng,
             generator_state,
         )
 
-    def generate_design_matrix(self, N, true_beta):
+    def generate_design_matrix(self, N, true_beta, rng=None):
         """
         Generate the design matrix X and binary response vector y as outlined
         in Greenland (1993). The design matrix X is a binary matrix of u
@@ -201,19 +199,22 @@ class DatasetGenerator(object):
         y | X. Finally, the alpha intercept is chosen to center the logits
         and ensure that roughly 50% of the responses are 1s.
         """
-        logger.debug(f"Using RNG: {self.rng}")
+        if rng is None:
+            rng = self.rng
 
-        Z = self.rng.multivariate_normal(
+        logger.debug(f"Using RNG: {rng}")
+
+        Z = rng.multivariate_normal(
             mean=np.zeros(self.cov_mat.shape[0]),
             cov=self.cov_mat,
             size=N,
             check_valid="warn",
             tol=1e-8,
         )
-        c_j = self.rng.uniform(-0.25, 0.25, size=self.cov_mat.shape[0])
+        c_j = rng.uniform(-0.25, 0.25, size=self.cov_mat.shape[0])
         logging.debug(f"c_j values: {', '.join(f'{val:.4f}' for val in c_j)}")
 
-        eps_k = self.rng.normal(0, self.sigma2, size=N)
+        eps_k = rng.normal(0, self.sigma2, size=N)
         X = Z > c_j
 
         # add intercept that centers the logits
@@ -222,20 +223,23 @@ class DatasetGenerator(object):
 
         logits = alpha + X @ true_beta + eps_k
         p_i = sigmoid(logits)
-        y = self.rng.binomial(1, p_i)
+        y = rng.binomial(1, p_i)
         logging.debug(f"{np.sum(y)}/{N} positive responses {np.mean(y):0.3f}.")
 
         return X, y
 
-    def generate_beta(self):
+    def generate_beta(self, rng=None):
         """
         Generate true regression coefficients for simulation. Interestingly,
         the beta draws are independent, despite us assuming correlation
         when estimated a parameter shrinkage term.
         """
-        z_i = self.rng.choice([0, 1], size=self.n, p=[0.8, 0.2])
-        pi_i = self.rng.exponential(self.tau_1, size=self.n)
+        if rng is None:
+            rng = self.rng
 
-        delta_i = self.rng.normal(0, self.tau_0, size=self.n)
+        z_i = rng.choice([0, 1], size=self.n, p=[0.8, 0.2])
+        pi_i = rng.exponential(self.tau_1, size=self.n)
+
+        delta_i = rng.normal(0, self.tau_0, size=self.n)
         beta = z_i * pi_i + delta_i
         return beta

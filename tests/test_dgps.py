@@ -60,7 +60,8 @@ def test_saving_loading(tmpdir):
     assert simulated_data.sigma2 == loaded_data.sigma2
 
     # ensure rng state can be recreated exactly
-    X, Y, beta = generate_data(100, state=simulated_data.generator_state)
+    # loaded_data.rng.bit_generator.state = loaded_data.generator_state
+    X, Y, beta = generate_data(100, rng=loaded_data.rng)
 
     assert np.array_equal(X, loaded_data.X)
     assert np.array_equal(Y, loaded_data.y)

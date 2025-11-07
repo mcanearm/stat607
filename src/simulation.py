@@ -3,12 +3,10 @@ import xarray as xr
 import numpy as np
 import inspect
 from pathlib import Path
-import os
 
 import pickle as pkl
 from src.dgps import DatasetGenerator
 from src.methods import fit_mle, fit_parametricEB, fit_semiBayes, __get_mle_vhat
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import tqdm
 
@@ -124,19 +122,30 @@ def _run_simulation(
     return beta_estimates, beta
 
 
-def _simulate_once_worker(args):
-    _mleParams, _ebParams, _sbParams, _data_generation_fn, _generation_kwargs = args
+def _simulate_once_worker(
+    attempt_id: int,
+    rng: np.random.Generator,
+    mleParams,
+    ebParams,
+    sbParams,
+    data_generation_fn: DatasetGenerator,
+    generation_kwargs: dict,
+):
+    gen_kwargs = dict(generation_kwargs)
+    gen_kwargs["rng"] = rng
+
     try:
-        return True, _run_simulation(
-            mleParams=_mleParams,
-            ebParams=_ebParams,
-            sbParams=_sbParams,
-            data_generation_fn=_data_generation_fn,
-            **_generation_kwargs,
+        out = _run_simulation(
+            data_generation_fn=data_generation_fn,
+            mleParams=mleParams,
+            ebParams=ebParams,
+            sbParams=sbParams,
+            **gen_kwargs,
         )
+        return True, attempt_id, out
     except Exception:
         # swallow failures; return a flag only
-        return False, None
+        return False, attempt_id, None
 
 
 def run_simulation(
@@ -145,8 +154,8 @@ def run_simulation(
     sbParams=None,
     ebParams=None,
     mleParams=None,
-    parallel: bool = False,
-    max_workers: int | None = None,
+    max_workers: int = 1,
+    base_rng: np.random.Generator | None = None,
     **generation_kwargs,
 ):
     """
@@ -161,82 +170,101 @@ def run_simulation(
     pbar = tqdm.tqdm(total=N_sim, desc="Running Simulations", unit="sims")
     sim_results = []
     attempts = 0
+    successes = 0
+    base_rng = np.random.default_rng() if not base_rng else base_rng
 
-    if not parallel:
+    if max_workers <= 1:
         # ------------ original, sequential ------------
         while len(sim_results) < N_sim:
             attempts += 1
-            try:
-                sim_output = _run_simulation(
-                    mleParams=mleParams,
-                    ebParams=ebParams,
-                    sbParams=sbParams,
-                    data_generation_fn=data_generation_fn,
-                    **generation_kwargs,
-                )
-            except Exception as e:
+            child_rng = base_rng.spawn(1)[0]
+
+            ok, attempt_id, payload = _simulate_once_worker(
+                attempt_id=attempts,
+                rng=child_rng,
+                mleParams=mleParams,
+                ebParams=ebParams,
+                sbParams=sbParams,
+                data_generation_fn=data_generation_fn,
+                generation_kwargs=generation_kwargs,
+            )
+            if not ok:
                 logger.debug(
                     "Iteration %d failed: %s -- success_rate=%.3f",
                     attempts,
-                    str(e),
                     len(sim_results) / attempts,
                 )
                 continue
-
-            sim_results.append(sim_output)
+            else:
+                sim_results.append((attempt_id, payload))
             pbar.update(1)
             pbar.set_postfix_str(
                 f"Success %: {len(sim_results) / attempts:0.3f}, n: {data_generation_fn.n}, N: {generation_kwargs.get('N', 'NA')}"
             )
-
         pbar.close()
 
     else:
-        # ------------ lightweight parallel version ------------
-        max_workers = max_workers or (os.cpu_count() or 4)
-        inflight = max_workers * 3  # small buffer keeps the pool busy
-
         # prebuild the args tuple once (picklable)
-        base_args = (
-            mleParams,
-            ebParams,
-            sbParams,
-            data_generation_fn,
-            generation_kwargs,
-        )
+        # Issue - the RNG here is shard across processes so need to somehow change the RNG state on each worker...
+        from concurrent.futures import ProcessPoolExecutor, as_completed
 
-        with ProcessPoolExecutor(max_workers=max_workers) as ex:
-            futures = set()
-            # prime the pump
-            while len(futures) < inflight:
-                futures.add(ex.submit(_simulate_once_worker, base_args))
+        inflight = max_workers * 3
+        with ProcessPoolExecutor(max_workers=max_workers) as pool:
+            futures = {}
+            # start some processes immediately
+            for _ in range(inflight):
                 attempts += 1
+                child_rng = base_rng.spawn(1)[0]
+                f = pool.submit(
+                    _simulate_once_worker,
+                    attempts,
+                    child_rng,
+                    mleParams,
+                    ebParams,
+                    sbParams,
+                    data_generation_fn,
+                    generation_kwargs,
+                )
+                futures[f] = attempts
 
             while len(sim_results) < N_sim:
-                # harvest one finished task, submit a replacement
                 done = next(as_completed(futures))
-                futures.remove(done)
-                ok, payload = done.result()
+                ok, _, payload = done.result()
+                attempt_id = futures.pop(done)
                 if ok:
-                    sim_results.append(payload)
+                    successes += 1
+                    sim_results.append((attempt_id, payload))
                     pbar.update(1)
-                pbar.set_postfix_str(
-                    f"Success %: {len(sim_results) / attempts:0.3f}, n: {data_generation_fn.n}, N: {generation_kwargs.get('N', 'NA')}"
-                )
+                    pbar.set_postfix_str(
+                        f"Success %: {len(sim_results) / attempts:0.3f}"
+                    )
+                if successes < N_sim:
+                    attempts += 1
+                    child_rng = base_rng.spawn(1)[0]
+                    f = pool.submit(
+                        _simulate_once_worker,
+                        attempts,
+                        child_rng,
+                        mleParams,
+                        ebParams,
+                        sbParams,
+                        data_generation_fn,
+                        generation_kwargs,
+                    )
+                    futures[f] = attempts
 
-                # keep the pipeline full
-                futures.add(ex.submit(_simulate_once_worker, base_args))
-                attempts += 1
-
-            # optional: cancel leftover tasks
+            # empty out the future attempts to ensure that from run to run, we
+            # get the exact same results
             for f in futures:
                 f.cancel()
 
         pbar.close()
 
     # ---------- pack results ----------
-    beta_hat = np.stack([res[0] for res in sim_results], axis=0)
-    true_beta = np.stack([res[1] for res in sim_results], axis=0)
+    sim_results.sort(key=lambda x: x[0])
+
+    beta_hat = np.stack([res[1][0] for res in sim_results], axis=0)
+    true_beta = np.stack([res[1][1] for res in sim_results], axis=0)
 
     simulation_output = xr.Dataset(
         data_vars={

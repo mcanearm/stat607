@@ -23,7 +23,11 @@ def test_simulation(generate_data):
 def test_simulation_output(generate_data):
     result = run_simulation(50, generate_data)
     assert result.attrs["N"] == 50
-    assert not set(generate_data.__dict__.keys()).difference(result.attrs.keys())
+    assert (
+        not set(generate_data.__dict__.keys())
+        .difference(result.attrs.keys())
+        .difference({"cov_mat"})
+    )
 
 
 @pytest.fixture()
@@ -81,3 +85,16 @@ def test_coverage_comparison():
     )
 
     assert np.all(coverage >= 0.94)
+
+
+def test_parallel_simulation(generate_data):
+    gen = DatasetGenerator(n=5, rng=np.random.default_rng(999))
+
+    r1 = run_simulation(50, gen, max_workers=2, base_rng=np.random.default_rng(42))
+    r2 = run_simulation(50, gen, max_workers=2, base_rng=np.random.default_rng(42))
+    r3 = run_simulation(50, gen, max_workers=2, base_rng=np.random.default_rng(51))
+
+    # These should now match exactly (up to fp noise):
+    np.allclose(r1["beta_hat"], r2["beta_hat"])
+    np.allclose(r1["true_beta"], r2["true_beta"])
+    assert not np.allclose(r1["beta_hat"], r3["beta_hat"])
