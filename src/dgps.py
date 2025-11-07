@@ -202,29 +202,24 @@ class DatasetGenerator(object):
         if rng is None:
             rng = self.rng
 
-        logger.debug(f"Using RNG: {rng}")
+        if self.rho == 0.0:
+            Z = rng.standard_normal(size=(N, self.n))
+        else:
+            g = rng.standard_normal(size=(N, 1))  # common factor
+            eps = rng.standard_normal(size=(N, self.n))  # idiosyncratic
+            Z = np.sqrt(self.rho) * g + np.sqrt(1 - self.rho) * eps
 
-        Z = rng.multivariate_normal(
-            mean=np.zeros(self.cov_mat.shape[0]),
-            cov=self.cov_mat,
-            size=N,
-            check_valid="warn",
-            tol=1e-8,
-        )
-        c_j = rng.uniform(-0.25, 0.25, size=self.cov_mat.shape[0])
-        logging.debug(f"c_j values: {', '.join(f'{val:.4f}' for val in c_j)}")
+        c_j = rng.uniform(-0.25, 0.25, size=self.n)
 
         eps_k = rng.normal(0, self.sigma2, size=N)
         X = Z > c_j
 
         # add intercept that centers the logits
         alpha = -np.mean(X @ true_beta + eps_k)
-        logging.debug(f"Alpha (intercept) value: {alpha:.4f}")
 
         logits = alpha + X @ true_beta + eps_k
         p_i = sigmoid(logits)
         y = rng.binomial(1, p_i)
-        logging.debug(f"{np.sum(y)}/{N} positive responses {np.mean(y):0.3f}.")
 
         return X, y
 

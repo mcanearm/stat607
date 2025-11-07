@@ -96,7 +96,7 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
 
     for _ in range(max_iter):
         inv_eigh_tau = 1 / (lam + tau_tilde2)
-        A_t = ZtWZ = np.sum(u1 * u1 * inv_eigh_tau)
+        ZtWZ = np.sum(u1 * u1 * inv_eigh_tau)
         ZtWbeta = np.sum(u1 * u_beta * inv_eigh_tau)
         # Prior mean
         pi_star = ZtWbeta / ZtWZ
@@ -157,15 +157,16 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
 
     # componentwise variance (eq. (12))
     Z = np.ones((n, 1))
-    A_t = np.linalg.solve(Z.T @ W_star @ Z, np.eye(1))
-    H_star = Z @ A_t @ Z.T @ W_star
+    A_t = 1 / ZtWZ
+    W1 = W_star @ Z
+    diag_H = A_t * W1
     v_star = np.trace(W_star @ V_hat) / np.trace(W_star)  # v*
     VBs = V_hat @ B_star
     WA = W_star @ A  # *** matrix product ***
 
     adj_vars = (
         np.diag(V_hat)
-        - (1.0 - np.diag(H_star)) * np.diag(VBs)
+        - (1.0 - diag_H) * np.diag(VBs)
         + (v_star + tau_tilde2) * np.diag(WA)
     )
     np.fill_diagonal(C_star, adj_vars)
