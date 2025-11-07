@@ -52,7 +52,6 @@ def run_scenario(scenario):
             N_sim=n_sim,
             data_generation_fn=data_gen,
             N=N,
-            parallel=True if core_count > 1 else False,
             max_workers=core_count,
             rng=np.random.default_rng(seed),
         )

@@ -143,8 +143,9 @@ def _simulate_once_worker(
             **gen_kwargs,
         )
         return True, attempt_id, out
-    except Exception:
+    except Exception as e:
         # swallow failures; return a flag only
+        logger.debug("Simulation attempt %d failed: %s", attempt_id, str(e))
         return False, attempt_id, None
 
 
