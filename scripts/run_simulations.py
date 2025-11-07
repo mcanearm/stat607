@@ -4,7 +4,6 @@ import os
 import sys
 import warnings
 from itertools import product
-from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
@@ -27,7 +26,7 @@ scenarios2 = product([20], [100, 500, 2000])  # n, N, true_tau
 scenarios = list(scenarios1) + list(scenarios2)
 
 
-loglevel = os.environ.get("LOGLEVEL", "INFO")
+loglevel = os.environ.get("LOGLEVEL", "ERROR")
 logging.basicConfig(level=loglevel)
 logger = logging.getLogger(__name__)
 
@@ -38,11 +37,8 @@ FILTER_WARNINGS = True
 
 
 def run_scenario(scenario):
-    n, N = scenario
-    rng = np.random.default_rng()
-    data_gen = DatasetGenerator(
-        n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rng=rng, rho=RHO
-    )
+    seed, core_count, n, N, n_sim = scenario
+    data_gen = DatasetGenerator(n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rho=RHO)
     scenario_msg = f"n={n}, N={N}, true_tau={TRUE_TAU:0.3f}"
 
     logger.info(f"Running scenario: n={n}, N={N}, true_tau={TAU_0:0.3f}")
@@ -53,10 +49,11 @@ def run_scenario(scenario):
             warnings.simplefilter("ignore", ConvergenceWarning)
             warnings.simplefilter("ignore", PerfectSeparationWarning)
         results = run_simulation(
-            N_sim=8000,
+            N_sim=n_sim,
             data_generation_fn=data_gen,
             N=N,
-            mleParams={"disp": False, "maxiter": 500},
+            max_workers=core_count,
+            rng=np.random.default_rng(seed),
         )
     save_simulation_output(results, OUTPUT_DIR)
     logger.info(
@@ -72,8 +69,13 @@ if __name__ == "__main__":
         description="Run simulations for various scenarios."
     )
     parser.add_argument("--num-cores", type=int, default=1, dest="cores")
+    parser.add_argument("--nsim", type=int, default=10, dest="nsim")
+    parser.add_argument("--seed", type=int, default=20250607, dest="seed")
     args = parser.parse_args()
     core_count = args.cores
+    nsim = args.nsim
+    seed = args.seed
+    scenarios = [(seed, core_count, *scenario, nsim) for scenario in scenarios]
 
-    with Pool(processes=core_count) as p:
-        list(p.imap_unordered(run_scenario, scenarios))
+    for scenario in scenarios:
+        run_scenario(scenario)

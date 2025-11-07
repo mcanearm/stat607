@@ -1,17 +1,21 @@
 [project]
-name = "Unit 2 Simulation Project"
+name = "unit3-project"
 version = "0.1"
-description = "Python project for Unit 2 in STAT607 at UofM."
+description = "Python project for Unit 3 in STAT607 at UofM. Same as unit 2, but with additional speedups and improvements to reproducibility."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "matplotlib>=3.10.7",
     "numpy>=2.3.4",
     "pandas>=2.3.3",
+    "scikit-learn>=1.7.2",
     "statsmodels>=0.14.5",
+    "tqdm>=4.67.1",
     "xarray>=2025.10.1",
 ]
 
 [project.optional-dependencies]
 testing = [
     "pytest>=8.4.2",
+    "snakeviz>=2.2.2",
 ]

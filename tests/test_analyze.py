@@ -17,7 +17,6 @@ def sample_output(generate_data):
         data_generation_fn=generate_data,
         N=100,
         sbParams={"tau2": 1.0},
-        mleParams={"disp": False, "maxiter": 100},
     )
     return results
 
