@@ -100,7 +100,6 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
         ZtWbeta = np.sum(u1 * u_beta * inv_eigh_tau)
         # Prior mean
         pi_star = ZtWbeta / ZtWZ
-        mu_star = pi_star * Z
 
         # Residuals in eigenbasis (?)
         e = u_beta - pi_star * u1
