@@ -71,6 +71,27 @@ def _run_simulation(
     mleParams: dict,
     **generation_kwargs,
 ):
+    """
+    Run a single simulation attempt.
+    Parameters
+    ----------
+    data_generation_fn : DatasetGenerator
+        Data generation function.
+    sbParams : dict
+        Parameters for Semi-Bayes fitting.
+    ebParams : dict
+        Parameters for Empirical Bayes fitting.
+    mleParams : dict
+        Parameters for MLE fitting.
+    generation_kwargs : dict
+        Additional keyword arguments for data generation function.
+    Returns
+    -------
+    beta_estimates : np.ndarray
+        Estimated beta coefficients and their standard errors from different methods.
+    beta : np.ndarray
+        True beta coefficients used in data generation.
+    """
     # get passed in dict values or initialize empty dicts
     X, y, beta = data_generation_fn(**generation_kwargs)
 
@@ -131,6 +152,29 @@ def _simulate_once_worker(
     data_generation_fn: DatasetGenerator,
     generation_kwargs: dict,
 ):
+    """
+    Worker function to run a single simulation attempt; main purpose is to swallow errors and exceptions, though these
+    are still viewable if LOG_LEVEL is set to DEBUG in the main logger in `run_simulation.py`.
+
+    TODO: Figure out how to enable logging messages to not get swallowed by TQDM progress bar.
+    attempt_id : int
+        Identifier for the simulation attempt.
+    rng : np.random.Generator
+        Random number generator for reproducibility.
+    mleParams : dict
+        Parameters for MLE fitting.
+    ebParams : dict
+        Parameters for Empirical Bayes fitting.
+    sbParams : dict
+        Parameters for Semi-Bayes fitting.
+    data_generation_fn : DatasetGenerator
+        Data generation function.
+    generation_kwargs : dict
+        Additional keyword arguments for data generation function.
+    """
+
+    # if RNG is passed to the data generation function, we want to override
+    # it to ensure reproducibility with the given RNG state.
     gen_kwargs = dict(generation_kwargs)
     gen_kwargs["rng"] = rng
 
