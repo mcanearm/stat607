@@ -341,6 +341,7 @@ def save_simulation_output(sim_data: xr.Dataset, output_dir: str | Path):
     with open(output_path, "wb") as f:
         pkl.dump(sim_data, f)
     logger.info(f"Simulation results saved to {output_path}")
+    return output_path
 
 
 def load_simulation_output(file_path: str | Path) -> xr.Dataset:

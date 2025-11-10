@@ -1,5 +1,9 @@
 import pytest
-from src.simulation import run_simulation, save_simulation_output
+from src.simulation import (
+    run_simulation,
+    save_simulation_output,
+    load_simulation_output,
+)
 from src.dgps import DatasetGenerator
 import numpy as np
 import pickle as pkl
@@ -51,6 +55,17 @@ def test_save_simulation(simulation_run, tmpdir):
     files = tmpdir.listdir()
     with open(files[0], "rb") as f:
         loaded_sim_run = pkl.load(f)
+
+    assert np.all(
+        simulation_run["beta_hat"].values == loaded_sim_run["beta_hat"].values
+    )
+    assert loaded_sim_run.rng.normal() == simulation_run.rng.normal()
+
+
+def test_load_simulation(simulation_run, tmpdir):
+    filepath = save_simulation_output(simulation_run, tmpdir)
+    # Now load it back
+    loaded_sim_run = load_simulation_output(filepath)
 
     assert np.all(
         simulation_run["beta_hat"].values == loaded_sim_run["beta_hat"].values
