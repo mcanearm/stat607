@@ -37,7 +37,7 @@ OUTPUT_DIR = Path("./results/raw/")
 FILTER_WARNINGS = True
 
 
-def run_scenario(scenario):
+def run_scenario(scenario, N_sim=8000):
     n, N = scenario
     rng = np.random.default_rng()
     data_gen = DatasetGenerator(
@@ -53,7 +53,7 @@ def run_scenario(scenario):
             warnings.simplefilter("ignore", ConvergenceWarning)
             warnings.simplefilter("ignore", PerfectSeparationWarning)
         results = run_simulation(
-            N_sim=8000,
+            N_sim=N_sim,
             data_generation_fn=data_gen,
             N=N,
             mleParams={"disp": False, "maxiter": 500},
