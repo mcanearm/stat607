@@ -15,6 +15,21 @@
             },
         },
         {
+            "name": "Run Sim Timings",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/scripts/record_timings.py",
+            "console": "integratedTerminal",
+            "env": { 
+                "PYTHONPATH": "${workspaceFolder}" 
+            },
+            "args": [
+                "--num-cores", "${input:numCores}",
+                "--output-dir", "${workspaceFolder}/results/timings/",
+                "--tag", "${input:tag}"
+            ]
+        },
+        {
             "name": "Run Simulations",
             "type": "debugpy",
             "request": "launch",
@@ -36,6 +51,11 @@
             "description": "Select number of CPU cores to use",
             "options": ["1", "2", "4", "8", "16", "32"],
             "default": "4"
+        },
+        { 
+            "id": "tag",
+            "type": "promptString",
+            "description": "String tag to use for output files (or whatever else)",
         }
     ]
         
