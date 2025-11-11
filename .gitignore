@@ -211,3 +211,5 @@ __marimo__/
 *.DS_Store
 results/processed/*
 results/raw/*
+docs/*.prof
+docs/*.csv
