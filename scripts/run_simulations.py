@@ -37,7 +37,7 @@ FILTER_WARNINGS = True
 
 
 def run_scenario(scenario):
-    seed, core_count, n, N, n_sim = scenario
+    rng, core_count, n, N, n_sim = scenario
     data_gen = DatasetGenerator(n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rho=RHO)
     scenario_msg = f"n={n}, N={N}, true_tau={TRUE_TAU:0.3f}"
 
@@ -53,7 +53,7 @@ def run_scenario(scenario):
             data_generation_fn=data_gen,
             N=N,
             max_workers=core_count,
-            rng=np.random.default_rng(seed),
+            rng=rng,
         )
     save_simulation_output(results, OUTPUT_DIR)
     logger.info(
@@ -75,7 +75,12 @@ if __name__ == "__main__":
     core_count = args.cores
     nsim = args.nsim
     seed = args.seed
-    scenarios = [(seed, core_count, *scenario, nsim) for scenario in scenarios]
+    rng = np.random.default_rng(seed)
+    spawned_rng = rng.spawn(len(scenarios))
+    scenarios = [
+        (spawned_rng[i], core_count, *scenario, nsim)
+        for i, scenario in enumerate(scenarios)
+    ]
 
     for scenario in scenarios:
         run_scenario(scenario)
