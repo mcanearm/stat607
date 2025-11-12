@@ -7,7 +7,6 @@ from itertools import product
 from pathlib import Path
 
 import numpy as np
-from statsmodels.tools.sm_exceptions import ConvergenceWarning, PerfectSeparationWarning
 
 from src.dgps import DatasetGenerator
 from src.simulation import run_simulation, save_simulation_output, true_tau
@@ -46,8 +45,6 @@ def run_scenario(scenario):
     with warnings.catch_warnings():
         if FILTER_WARNINGS:
             warnings.simplefilter("ignore", RuntimeWarning)
-            warnings.simplefilter("ignore", ConvergenceWarning)
-            warnings.simplefilter("ignore", PerfectSeparationWarning)
         results = run_simulation(
             N_sim=n_sim,
             data_generation_fn=data_gen,
