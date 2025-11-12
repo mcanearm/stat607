@@ -34,7 +34,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    n_sims = [100, 500, 1000, 2000]
+    n_sims = [100, 500, 1000, 2000, 4000, 8000]
     file_tag = args.tag or get_git_hash()
 
     seed = 20250607
