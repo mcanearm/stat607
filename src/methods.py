@@ -1,55 +1,54 @@
-import statsmodels.api as sm
+from sklearn.linear_model import LogisticRegression
 import numpy as np
 import logging
 from collections import namedtuple
+from scipy.linalg import cho_solve
 
 logger = logging.getLogger(__name__)
+
+mle_results = namedtuple("mle_results", ["beta_hat", "V_hat"])
 
 
 def __get_mle_vhat(model):
     """
     Extract MLE estimates and covariance from a fitted statsmodels model.
     Simple helper function to avoid boilerplate code in EB and SB methods.
+
+    Deprecated: this is leftover from utilizing statsmodels; since we are
+    using scikit-learn now, just use a model of the beta hat estimates and the
+    calculated variance directly.
     """
 
     # ignore the intercept
-    beta_hat = (
-        model.params.values[1:] if hasattr(model.params, "values") else model.params[1:]
-    )
-    V_hat = (
-        model.cov_params().values
-        if hasattr(model.cov_params(), "values")
-        else model.cov_params()
-    )
-    V_hat = V_hat[1:, 1:]  # drop intercept row/col
-    return beta_hat, V_hat
+    return model
 
 
-def fit_mle(X, y, **fit_params):
-    """
-    Compute the MLE for logistic regression; servces as a
-    baseline method for our simulations.
-
-    Parameters
-    ----------
-    X : np.ndarray
-        Design matrix of shape (N, n).
-    y : np.ndarray
-        Binary response vector of shape (N,).
-
-    Returns
-    -------
-    model: statsmodels.discrete.discrete_model.BinaryResults
-    """
-
-    fit_params = fit_params or {"disp": False, "maxiter": 100}
-    X = sm.add_constant(X.astype(int))
-    model = sm.Logit(y, X).fit(**fit_params)
-
-    if not model.mle_retvals["converged"]:
-        raise RuntimeError("MLE fitting did not converge.")
-    else:
-        return model
+def fit_mle(X, y, se_threshold=np.sqrt(10), max_iter=200):
+    try:
+        X = np.c_[np.ones(len(X)), X].astype(np.float64)  # add intercept
+        lr = LogisticRegression(
+            penalty=None, solver="lbfgs", max_iter=max_iter, fit_intercept=False
+        )
+        lr.fit(X, y)
+        beta = lr.coef_.ravel()  # includes intercept
+        eta = X @ beta
+        p = 1.0 / (1.0 + np.exp(-eta))
+        W = p * (1 - p)  # diag weights
+        XtWX = X.T @ (W[:, None] * X)
+        # Use solve instead of inv for stability
+        L = np.linalg.cholesky(XtWX)
+        V = cho_solve((L, True), np.eye(L.shape[0]))
+        beta_hat = beta[1:]
+        V_hat = V[1:, 1:]
+        if np.any(np.diag(V_hat) >= se_threshold**2) or not np.isfinite(V_hat).all():
+            raise RuntimeError("Ill-formed MLE covariance matrix")
+    except Warning as w:
+        logger.debug("MLE fitting warning: %s", str(w))
+        raise RuntimeError("MLE fitting failed due to warning/potentially overflow")
+    except RuntimeError as re:
+        logger.debug("MLE fitting runtime error encountered: %s", str(re))
+        raise RuntimeError("MLE fitting failed due to runtime error")
+    return mle_results(beta_hat, V_hat)
 
 
 parametricEBResults = namedtuple(
