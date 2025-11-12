@@ -21,7 +21,8 @@
             "program": "${workspaceFolder}/scripts/record_timings.py",
             "console": "integratedTerminal",
             "env": { 
-                "PYTHONPATH": "${workspaceFolder}" 
+                "PYTHONPATH": "${workspaceFolder}" ,
+                "LOGLEVEL": "${input:logLevel}"
             },
             "args": [
                 "--num-cores", "${input:numCores}",
@@ -56,6 +57,13 @@
             "id": "tag",
             "type": "promptString",
             "description": "String tag to use for output files (or whatever else)",
+        },
+        {
+            "id": "logLevel",
+            "type": "pickString",
+            "description": "Select logging level",
+            "options": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+            "default": "INFO"
         }
     ]
         
