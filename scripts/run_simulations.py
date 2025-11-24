@@ -72,6 +72,7 @@ if __name__ == "__main__":
     parser.add_argument("--nsim", type=int, default=10, dest="nsim")
     parser.add_argument("--seed", type=int, default=20250607, dest="seed")
     args = parser.parse_args()
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     core_count = args.cores
     nsim = args.nsim
     seed = args.seed
