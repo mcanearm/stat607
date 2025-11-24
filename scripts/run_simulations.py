@@ -5,6 +5,8 @@ import sys
 import warnings
 from itertools import product
 from pathlib import Path
+import multiprocessing
+import tqdm
 
 import numpy as np
 
@@ -36,7 +38,7 @@ FILTER_WARNINGS = True
 
 
 def run_scenario(scenario):
-    rng, core_count, n, N, n_sim = scenario
+    rng, core_count, n, N, n_sim, tqdm_position = scenario
     data_gen = DatasetGenerator(n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rho=RHO)
     scenario_msg = f"n={n}, N={N}, true_tau={TRUE_TAU:0.3f}"
 
@@ -51,6 +53,7 @@ def run_scenario(scenario):
             N=N,
             max_workers=core_count,
             rng=rng,
+            tqdm_position=tqdm_position,
         )
     save_simulation_output(results, OUTPUT_DIR)
     logger.info(
@@ -75,9 +78,16 @@ if __name__ == "__main__":
     rng = np.random.default_rng(seed)
     spawned_rng = rng.spawn(len(scenarios))
     scenarios = [
-        (spawned_rng[i], core_count, *scenario, nsim)
-        for i, scenario in enumerate(scenarios)
+        (spawned_rng[i], 1, *scenario, nsim, i) for i, scenario in enumerate(scenarios)
     ]
 
-    for scenario in scenarios:
-        run_scenario(scenario)
+    if core_count > 1:
+        with multiprocessing.Pool(
+            processes=min(len(scenarios), core_count),
+            initializer=tqdm.tqdm.set_lock,
+            initargs=(multiprocessing.RLock(),),
+        ) as p:
+            list(p.imap_unordered(run_scenario, scenarios))
+    else:
+        for scenario in scenarios:
+            run_scenario(scenario)

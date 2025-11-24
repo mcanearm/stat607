@@ -201,6 +201,7 @@ def run_simulation(
     mleParams=None,
     max_workers: int = 1,
     base_rng: np.random.Generator | None = None,
+    tqdm_position: int = 0,
     **generation_kwargs,
 ):
     """
@@ -212,7 +213,9 @@ def run_simulation(
     ebParams = get_sim_args(fit_parametricEB, ebParams or {})
     mleParams = get_sim_args(fit_mle, mleParams or {})
 
-    pbar = tqdm.tqdm(total=N_sim, desc="Running Simulations", unit="sims")
+    pbar = tqdm.tqdm(
+        total=N_sim, desc="Running Simulations", unit="sims", position=tqdm_position
+    )
     sim_results = []
     attempts = 0
     successes = 0
