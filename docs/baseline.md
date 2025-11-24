@@ -67,3 +67,22 @@ The following plot shows both the optimized code and the naive code that I first
 
 The array printing, aside, the large culprit is the `fit_parametricEB` function, which is an iterative EM algorithm that in the base configuration, requires several matrix inversions per iteration. I removed all except one, instead using an eigendecomposition for the iterative updating part. This was another ChatGPT suggestion for making the code faster, which after testing, seemed to work. However, I dislike that the AI effectively wrote this optimization for me.
 
+## Total Runtime
+
+Below is the output from running the entire simulation from beginning to end. Total time ended up being 1:15.27 total, spread across 8 cores.
+
+```bash
+time PYTHONPATH=. python ./scripts/run_simulations.py --num-cores 8
+INFO:__mp_main__:Running scenario: n=4, N=40, true_tau=0.200
+INFO:__mp_main__:Running scenario: n=4, N=100, true_tau=0.200
+INFO:__mp_main__:Running scenario: n=4, N=500, true_tau=0.200
+INFO:__mp_main__:Running scenario: n=10, N=40, true_tau=0.200
+INFO:__mp_main__:Running scenario: n=10, N=100, true_tau=0.200
+INFO:__mp_main__:Running scenario: n=10, N=500, true_tau=0.200
+INFO:__mp_main__:Running scenario: n=20, N=100, true_tau=0.200
+INFO:__mp_main__:Running scenario: n=20, N=500, true_tau=0.200
+INFO:src.simulation:8000 simulations completed, success rate = 1.000, data_parameters: {'n': 4, 'rho': 0.5, 'tau_0': 0.2, 'tau_1': 0.2, 'sigma2': 1.0, 'rng': Generator(PCG64) at 0x11FBB6CE0}
+# (truncated) #
+INFO:__mp_main__:Scenario complete: n=20, N=2000, true_tau=0.215, success_rate=1.000
+PYTHONPATH=. python ./scripts/run_simulations.py --num-cores 8  307.94s user 17.27s system 432% cpu 1:15.27 total
+```
