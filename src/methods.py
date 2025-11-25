@@ -42,12 +42,10 @@ def fit_mle(X, y, se_threshold=np.sqrt(10), max_iter=200):
         V_hat = V[1:, 1:]
         if np.any(np.diag(V_hat) >= se_threshold**2) or not np.isfinite(V_hat).all():
             raise RuntimeError("Ill-formed MLE covariance matrix")
-    except Warning as w:
-        logger.debug("MLE fitting warning: %s", str(w))
-        raise RuntimeError("MLE fitting failed due to warning/potentially overflow")
+    except Warning:
+        raise RuntimeError("MLE fitting failed due to warning: {w}")
     except RuntimeError as re:
-        logger.debug("MLE fitting runtime error encountered: %s", str(re))
-        raise RuntimeError("MLE fitting failed due to runtime error")
+        raise RuntimeError(f"MLE fitting failed due to runtime error: {re}")
     return mle_results(beta_hat, V_hat)
 
 
@@ -94,6 +92,7 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
     u1 = Q.T @ Z
     u_beta = Q.T @ beta_hat
 
+    converged = False
     for _ in range(max_iter):
         inv_eigh_tau = 1 / (lam + tau_tilde2)
         ZtWZ = np.sum(u1 * u1 * inv_eigh_tau)
@@ -120,8 +119,11 @@ def fit_parametricEB(model, max_iter=250, tol=1e-6):
         if np.abs(tau_new - tau_tilde2) < tol:
             tau_tilde2 = tau_new
             logger.debug(f"Converged after {_} iterations.")
+            converged = True
             break
         tau_tilde2 = tau_new
+    if not converged:
+        raise RuntimeError("Parametric EB fitting did not converge.")
 
     # post convergence estimates
     # inside fit_parametricEB after convergence

@@ -3,6 +3,7 @@ import xarray as xr
 import numpy as np
 import inspect
 from pathlib import Path
+import sys
 
 import pickle as pkl
 from src.dgps import DatasetGenerator
@@ -189,7 +190,7 @@ def _simulate_once_worker(
         return True, attempt_id, out
     except Exception as e:
         # swallow failures; return a flag only
-        logger.debug("Simulation attempt %d failed: %s", attempt_id, str(e))
+        logger.warning("Simulation attempt %d failed: %s", attempt_id, str(e))
         return False, attempt_id, None
 
 
@@ -214,7 +215,11 @@ def run_simulation(
     mleParams = get_sim_args(fit_mle, mleParams or {})
 
     pbar = tqdm.tqdm(
-        total=N_sim, desc="Running Simulations", unit="sims", position=tqdm_position
+        total=N_sim,
+        desc="Running Simulations",
+        unit="sims",
+        position=tqdm_position,
+        file=sys.stdout,
     )
     sim_results = []
     attempts = 0

@@ -84,7 +84,9 @@ if __name__ == "__main__":
     rng = np.random.default_rng(seed)
     spawned_rng = rng.spawn(len(scenarios))
     scenarios = [
-        SimulationScenario(spawned_rng[i], 1, *scenario, nsim, i)
+        SimulationScenario(
+            spawned_rng[i], 1, *scenario, nsim, i if core_count > 1 else 0
+        )
         for i, scenario in enumerate(scenarios)
     ]
 
