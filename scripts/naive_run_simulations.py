@@ -47,7 +47,9 @@ SimulationScenario = namedtuple(
 
 def run_scenario(scenario):
     rng, core_count, n, N, n_sim = scenario
-    data_gen = DatasetGenerator(n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rho=RHO)
+    data_gen = DatasetGenerator(
+        n=n, tau_0=TAU_0, tau_1=TAU_1, sigma2=SIGMA2, rho=RHO, rng=rng
+    )
     scenario_msg = f"n={n}, N={N}, true_tau={TRUE_TAU:0.3f}"
 
     logger.info(f"Running scenario: n={n}, N={N}, true_tau={TAU_0:0.3f}")
@@ -57,7 +59,7 @@ def run_scenario(scenario):
             warnings.simplefilter("ignore", RuntimeWarning)
             warnings.simplefilter("ignore", ConvergenceWarning)
             warnings.simplefilter("ignore", PerfectSeparationWarning)
-        results = run_simulation(N_sim=n_sim, data_generation_fn=data_gen, N=N, rng=rng)
+        results = run_simulation(N_sim=n_sim, data_generation_fn=data_gen, N=N)
     save_simulation_output(results, OUTPUT_DIR)
     logger.info(
         f"Scenario complete: {scenario_msg}, success_rate={results.attrs['success_rate']:0.3f}"
