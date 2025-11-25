@@ -2,18 +2,23 @@ NSIM ?= 8000
 NUM_CORES ?= 1
 TAG ?= $(shell git rev-parse --short HEAD)
 VERSION ?= "v2"
+PYTHONPATH := $(CURDIR)
+export PYTHONPATH
+
+.PHONY: test simulate analyze figures clean profile complexity parallel stability-check 
 
 test:
-	PYTHONPATH=. pytest tests/
+	pytest tests/
 
 simulate:
-	PYTHONPATH=. python ./scripts/run_simulations.py --nsim $(NSIM) --num-cores $(NUM_CORES)
+	python ./scripts/run_simulations.py --nsim $(NSIM) --num-cores $(NUM_CORES)
 
 analyze:
-	PYTHONPATH=. python ./scripts/generate_summaries.py
+	python ./scripts/generate_summaries.py
 
 figures:
-	PYTHONPATH=. python ./scripts/generate_plots.py
+	python ./scripts/generate_plots.py
+	python ./scripts/analyze_timings.py
 
 clean:
 	rm -rf results/raw/* results/figures/* results/processed/*
@@ -21,13 +26,13 @@ clean:
 profile:
 	mkdir -p ./results/timings
 	if [ "$(VERSION)" = "v1" ]; then \
-		PYTHONPATH=. python -m cProfile -o ./results/profiling/profile_$(TAG).prof ./scripts/naive_run_simulations.py --nsim $(NSIM) --num-cores $(NUM_CORES); \
+		python -m cProfile -o ./results/profiling/profile_$(TAG).prof ./scripts/naive_run_simulations.py --nsim $(NSIM) --num-cores $(NUM_CORES); \
 	else \
-		PYTHONPATH=. python -m cProfile -o ./results/profiling/profile_$(TAG).prof ./scripts/run_simulations.py --nsim $(NSIM) --num-cores $(NUM_CORES); \
+		python -m cProfile -o ./results/profiling/profile_$(TAG).prof ./scripts/run_simulations.py --nsim $(NSIM) --num-cores $(NUM_CORES); \
 	fi
 
 complexity:
-	PYTHONPATH=. python ./scripts/record_timings.py --tag $(TAG) --version $(VERSION)
+	python ./scripts/record_timings.py --tag $(TAG) --version $(VERSION)
 
 parallel:
 	NUM_CORES ?= 4
@@ -35,6 +40,6 @@ parallel:
 	
 stability-check:
 	mkdir -p ./results/profiling
-	LOGLEVEL=WARNING PYTHONPATH=. make simulate 2> results/profiling/stability_check.log
+	LOGLEVEL=WARNING make simulate 2> results/profiling/stability_check.log
 	
 all: simulate analyze figures

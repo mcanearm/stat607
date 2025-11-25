@@ -167,7 +167,7 @@ comparison["tottime_diff"] = (
     comparison["tottime_optimized"] - comparison["tottime_naive"]
 )
 print(
-    comparison.sort_values("tottime_diff", ascending=False)[
+    comparison.sort_values("tottime_diff", ascending=True)[
         ["func", "tottime_naive", "tottime_optimized", "tottime_diff"]
     ]
     .reset_index(drop=True)

@@ -213,3 +213,5 @@ results/processed/*
 results/raw/*
 docs/*.prof
 docs/*.csv
+
+results/timings/*
