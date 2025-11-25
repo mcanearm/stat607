@@ -7,6 +7,7 @@ from itertools import product
 from pathlib import Path
 import multiprocessing
 import tqdm
+from collections import namedtuple
 
 import numpy as np
 
@@ -35,6 +36,10 @@ logger = logging.getLogger(__name__)
 # CONSTANTS
 OUTPUT_DIR = Path("./results/raw/")
 FILTER_WARNINGS = True
+
+SimulationScenario = namedtuple(
+    "SimulationScenario", ["rng", "core_count", "n", "N", "n_sim", "tqdm_position"]
+)
 
 
 def run_scenario(scenario):
@@ -79,7 +84,8 @@ if __name__ == "__main__":
     rng = np.random.default_rng(seed)
     spawned_rng = rng.spawn(len(scenarios))
     scenarios = [
-        (spawned_rng[i], 1, *scenario, nsim, i) for i, scenario in enumerate(scenarios)
+        SimulationScenario(spawned_rng[i], 1, *scenario, nsim, i)
+        for i, scenario in enumerate(scenarios)
     ]
 
     if core_count > 1:
