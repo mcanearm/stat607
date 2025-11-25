@@ -75,7 +75,7 @@ def test_load_simulation(simulation_run, tmpdir):
 
 def test_coverage_comparison():
     # All simulations in the paper had over 95% coverage, or maybe some variant
-    # of 94%. If it's less than that, we're doing something wrong in the fit methods.
+    # of 90%. If it's less than that, we're doing something wrong in the fit methods.
     rng = np.random.default_rng(19900330)
     generate_data = DatasetGenerator(n=4, rho=0.5, tau_0=0.2, tau_1=0.2, sigma2=0.5)
 
@@ -100,7 +100,7 @@ def test_coverage_comparison():
 
     assert np.all(
         coverage >= 0.90
-    )  # make this slightly more robust to failure on random seeds
+    )  # make this slightly more robust to failure on random seeds than the original 94%
 
 
 def test_parallel_simulation(generate_data):
