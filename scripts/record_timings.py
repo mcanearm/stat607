@@ -42,17 +42,14 @@ if __name__ == "__main__":
     new_rngs = rng.spawn(len(scenarios) * len(n_sims))
 
     scenarios = [
-        (
-            scenario[0],
-            scenario[1],
-            n_sim,
-        )
-        for scenario in scenarios
-        for n_sim in n_sims
+        (scenario[0], scenario[1], n_sim) for scenario in scenarios for n_sim in n_sims
     ]
 
     timings = [
-        (*scenario, time_fn(run_scenario)((new_rngs[i], args.num_cores, *scenario))[1])
+        (
+            *scenario,
+            time_fn(run_scenario)((new_rngs[i], args.num_cores, *(*scenario, 0)))[1],
+        )
         for i, scenario in enumerate(scenarios)
     ]
 
