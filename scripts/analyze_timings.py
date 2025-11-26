@@ -5,9 +5,13 @@ from pathlib import Path
 
 import pandas as pd
 from matplotlib import pyplot as plt
+import logging
 
 # this assumes you're running at the package root.
 FIGURES_DIR = Path("./results/figures")
+
+
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "ERROR"))
 
 
 # ChatGPT generated code for combining dataframes together from the stats/cProf

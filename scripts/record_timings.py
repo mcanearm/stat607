@@ -18,7 +18,7 @@ import numpy as np
 
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=os.environ.get("LOGLEVEL", "INFO"))
+logging.basicConfig(level=os.environ.get("LOGLEVEL", "ERROR"))
 
 
 if __name__ == "__main__":
