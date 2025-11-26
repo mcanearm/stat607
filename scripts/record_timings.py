@@ -1,5 +1,5 @@
 """
-This script acts a wrapper around the "run_simulations" script that bridges between two versions; the v2 version
+This script acts a wrapper around the "run_simulations" script that bridges between two versions; the v1 version
 present at hash b44412815b86fc8d25cf192c7857a43b20c1e0c1 and the newer, updated version that exists on the dev
 branch, which will be tagged later.
 
