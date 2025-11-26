@@ -115,8 +115,7 @@ for _ in range(max_iter):
 
 This only reduces my total runtime by about 2 seconds however, and to be honest, I don't think it was a particularly useful way to spend my time. I understand my code a little less in exchange for a pretty small incresae in speed.
 
-Small Results are par for the course after that - in fact, I mistakenly thought that several lines in the baseline were due to the MLE method, and so sought to shorten those. However, my MLE code actually end up running slightly slower. All told, a comparison of the profiling before and after yields a table that I think is fairly compelling. These results are generated from `./scripts/analyze_timings.py`, and are also present in
-a notebook I was toying with in the `docs` folder.
+Small Results are par for the course after that - in fact, I mistakenly thought that several lines in the baseline were due to the MLE method, and so sought to shorten those. However, my MLE code actually end up running slightly slower. All told, a comparison of the profiling before and after yields a table that I think is fairly compelling. These results are generated from `./scripts/analyze_timings.py`, and are also present in a notebook I was toying with in the `docs` folder.
 
 |    | func                   |   tottime_naive |   tottime_optimized |   tottime_diff |
 |---:|:-----------------------|----------------:|--------------------:|---------------:|
@@ -150,4 +149,5 @@ I relied on my existing unit tests to ensure that my optimizations did not chang
 Next, I re-created my visualizations multiple times from new results. They qualitatively looked equal, and so I took that as a sign that my results were roughly the same before and after running.
 
 Finally, I actually trust my optimized results more, because I spent some
-time ensuring that it was more reproducible across parallelism. It was hard only optimize my code and not fix other mistakes I found. 
+time ensuring that it was more reproducible across parallelism. It was hard to only optimize my code and not fix 
+other mistakes I found.

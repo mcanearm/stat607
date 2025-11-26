@@ -17,6 +17,7 @@ def sample_output(generate_data):
         data_generation_fn=generate_data,
         N=100,
         sbParams={"tau2": 1.0},
+        base_rng=np.random.default_rng(12345),
     )
     return results
 

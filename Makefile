@@ -4,7 +4,7 @@ NSIM ?= 8000
 NUM_CORES ?= 1
 TAG ?= $(shell git rev-parse --short HEAD)
 VERSION ?= "v2"
-PYTHONPATH := $(CURDIR)
+PYTHONPATH ?= $(CURDIR)
 export PYTHONPATH
 
 .PHONY: test simulate analyze figures clean profile complexity parallel stability-check 
