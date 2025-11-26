@@ -1,3 +1,5 @@
+# below are various arguments available for the makefile. Pass them in as environment
+# variables when calling make, e.g. NSIM=1000 make simulate
 NSIM ?= 8000 
 NUM_CORES ?= 1
 TAG ?= $(shell git rev-parse --short HEAD)
@@ -23,7 +25,10 @@ figures:
 clean:
 	rm -rf results/raw/* results/figures/* results/processed/*
 	
-profile:
+profile: 
+	python -m cProfile -o ./results/profiling/$(TAG).prof ./scripts/run_simulations.py --nsim 500 --num-cores 1
+
+benchmark:
 	mkdir -p ./results/timings
 	if [ "$(VERSION)" = "v1" ]; then \
 		python -m cProfile -o ./results/profiling/profile_$(TAG).prof ./scripts/naive_run_simulations.py --nsim $(NSIM) --num-cores $(NUM_CORES); \
